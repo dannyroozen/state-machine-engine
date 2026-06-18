@@ -20,6 +20,7 @@ func NewObserver(w io.Writer) *Observer {
 	return &Observer{w: w}
 }
 
+// OnTransition for this observer logs the transition event
 func (o *Observer) OnTransition(_ context.Context, event domain.TransitionEvent) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()

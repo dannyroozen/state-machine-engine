@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"state-machine-engine/internal/logging"
 	"strings"
 
 	"github.com/ollama/ollama/api"
@@ -16,6 +17,8 @@ import (
 
 	rich "github.com/eberle1080/go-rich"
 )
+
+var logger = logging.NewLogger("config/assistant")
 
 type StaticEngineDeps struct {
 	HasConditions bool
@@ -29,7 +32,6 @@ func (s StaticEngineDeps) HasObserver(index int) bool  { return index >= 0 && in
 func (s StaticEngineDeps) ObserverCount() int          { return s.Observers }
 
 type RunAssistant struct {
-	logger    *zap.Logger
 	store     AssistantToolStore
 	validator domain.Validator
 	engineDep domain.EngineDependencies
@@ -38,7 +40,6 @@ type RunAssistant struct {
 }
 
 func NewRunAssistant(
-	logger *zap.Logger,
 	store AssistantToolStore,
 	validator domain.Validator,
 	engineDep domain.EngineDependencies,
@@ -46,7 +47,6 @@ func NewRunAssistant(
 	out io.Writer,
 ) *RunAssistant {
 	return &RunAssistant{
-		logger:    logger,
 		store:     store,
 		validator: validator,
 		engineDep: engineDep,
@@ -79,7 +79,7 @@ func (a *RunAssistant) Run(ctx context.Context, runtimeCfg *domain.RuntimeConfig
 		return err
 	}
 	if archived != "" {
-		a.logger.Info("archived previous target contents", zap.String("archive_dir", archived))
+		logger.Info("archived previous target contents", zap.String("archive_dir", archived))
 	}
 
 	messages := []api.Message{

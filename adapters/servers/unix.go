@@ -3,6 +3,7 @@ package servers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,8 +15,10 @@ import (
 	"state-machine-engine/internal/app"
 	"state-machine-engine/internal/domain"
 	"state-machine-engine/internal/logging"
+	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 )
 
 var logger = logging.NewLogger("servers")
@@ -98,8 +101,56 @@ func handleRequest(service *app.Service, w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	if err = enc.Encode(resp); err != nil {
+	if err = enc.Encode(makeTransportResponse(resp)); err != nil {
 		logger.Error(fmt.Sprintf("failed to write response: %v", err))
+	}
+}
+
+type transportResponseEnvelope struct {
+	SessionID string             `json:"session_id"`
+	State     string             `json:"state"`
+	Output    any                `json:"output,omitempty"`
+	Error     *domain.ErrorBlock `json:"error,omitempty"`
+}
+
+func makeTransportResponse(resp domain.ResponseEnvelope) transportResponseEnvelope {
+	return transportResponseEnvelope{
+		SessionID: resp.SessionID,
+		State:     resp.State,
+		Output:    decodeFlexibleOutput(resp.Output),
+		Error:     resp.Error,
+	}
+}
+
+func decodeFlexibleOutput(out []byte) any {
+	if len(out) == 0 {
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return nil
+	}
+
+	raw := []byte(trimmed)
+	if json.Valid(raw) {
+		var parsed any
+		if err := json.Unmarshal(raw, &parsed); err == nil {
+			return parsed
+		}
+		return json.RawMessage(raw)
+	}
+
+	if utf8.Valid(raw) {
+		return map[string]any{
+			"format": "text",
+			"data":   string(raw),
+		}
+	}
+
+	return map[string]any{
+		"format": "base64",
+		"data":   base64.StdEncoding.EncodeToString(raw),
 	}
 }
 

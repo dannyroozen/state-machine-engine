@@ -23,6 +23,8 @@ func NewStore() *Store {
 	}
 }
 
+// Get a session from our in-memory storage.
+// Thread-safe
 func (s *Store) Get(_ context.Context, sessionID string) (*domain.Session, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -36,6 +38,8 @@ func (s *Store) Get(_ context.Context, sessionID string) (*domain.Session, error
 	return &cp, nil
 }
 
+// Upsert will insert or update a session into our in-memory storage
+// Thread-safe
 func (s *Store) Upsert(_ context.Context, session *domain.Session) error {
 	if session == nil {
 		return errors.New("invalid input: nil session")

@@ -10,6 +10,8 @@ import (
 	"state-machine-engine/internal/domain"
 )
 
+// TODO: Every application should have reporting, but is that up to the implementing application to include in their state machine? Can we provide some defaults?
+
 var logger = logging.NewLogger("engine")
 
 type Engine struct {
@@ -109,8 +111,18 @@ func (e *Engine) Step(
 	// Execute the action associated with the transition, if any
 	var out []byte
 	if selected.Action != "" {
+		logger.Debug("From State: " + fromState)
 		// e.actions assumed to exist and be validated on engine startup
-		out, err = e.actions.Execute(ctx, selected.Action, req, session)
+		out, err = e.actions.Execute(ctx, selected.Action, req, session,
+			// give the action some context, so it knows things like which state we're going to
+			domain.TransitionEvent{
+				SessionID:   session.ID,
+				MachineName: machine.Name,
+				FromState:   fromState,
+				Transition:  selected.ID,
+				ToState:     selected.Target,
+				Action:      selected.Action,
+			})
 		if err != nil {
 			session.State = machine.ErrorState
 			_ = e.notify(ctx, domain.TransitionEvent{
@@ -145,19 +157,28 @@ func (e *Engine) Step(
 	if strings.ToLower(targetState) != domain.ExitState {
 		targetStateDef := machine.States[targetState]
 		if targetStateDef.Action != "" {
-			out, err = e.actions.Execute(ctx, targetStateDef.Action, req, session)
+			out, err = e.actions.Execute(ctx, targetStateDef.Action, req, session,
+				// give the action some context, so it knows things like which state we came from
+				domain.TransitionEvent{
+					SessionID:   session.ID,
+					MachineName: machine.Name,
+					FromState:   fromState,
+					Transition:  selected.ID,
+					ToState:     machine.ErrorState,
+					Action:      selected.Action,
+				})
 			if err != nil {
 				session.State = machine.ErrorState
 				_ = e.notify(ctx, domain.TransitionEvent{
 					SessionID:   session.ID,
 					MachineName: machine.Name,
 					FromState:   targetState,
-					Transition:  "runtime_invalid_state",
+					Transition:  "runtime_error_executing_state",
 					ToState:     machine.ErrorState,
 					Success:     false,
-					Error:       "target state missing from machine definition",
+					Error:       err.Error(),
 				})
-				return nil, fmt.Errorf("action failed: state %q not found", fromState)
+				return nil, fmt.Errorf("action failed: when executing state %q", fromState)
 			}
 			// combine output with whatever output we may have received from the action on the transition leading to this state.
 			// it is up to the state machine definition to make sure either actions on transitions don't output,

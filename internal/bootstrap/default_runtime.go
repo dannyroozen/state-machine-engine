@@ -63,15 +63,8 @@ func (r *DefaultRuntime) RunRequest(socketPath, input string) error {
 	return nil
 }
 
-func (r *DefaultRuntime) RunConfigAssistant(machinePath, runtimePath, model string, nonInteractive bool) error {
-	_ = context.Background()
-	_ = machinePath
-	_ = runtimePath
-	_ = model
-	_ = nonInteractive
-
+func (r *DefaultRuntime) RunConfigAssistant(machinePath, runtimePath, model string) error {
 	ctx := context.Background()
-	logger := logging.NewLogger("bootstrap.config-assistant")
 
 	configProvider := fileconfig.NewProvider(machinePath, runtimePath)
 	rtCfg, err := configProvider.LoadRuntimeConfig(ctx)
@@ -80,7 +73,6 @@ func (r *DefaultRuntime) RunConfigAssistant(machinePath, runtimePath, model stri
 	}
 
 	assistant := bootstrapconfig.NewRunAssistant(
-		logger,
 		configProvider,
 		validation.NewStateMachineValidator(),
 		bootstrapconfig.StaticEngineDeps{

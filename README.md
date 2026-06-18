@@ -207,12 +207,13 @@ This sends a request to the running service over the configured socket.
 ## `config` command
 
 ```bash
-./state-machine-engine config --model gpt-4.1 --non-interactive
+./state-machine-engine config --model gpt-4.1
 ```
 
 Command flags:
 - `--model` LLM model name
-- `--non-interactive` disable prompts
+
+This starts an interactive session with a local ollama AI assistant to help you configure your state machine.
 
 ---
 
@@ -287,3 +288,7 @@ func main() {
 ```
 
 This keeps the core engine reusable while allowing opinionated runtime composition per application.
+
+# Samples
+
+See sample implementations in the [sample](https://github.com/dannyroozen/state-machine-engine/tree/main/sample) directory.

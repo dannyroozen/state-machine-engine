@@ -1,0 +1,12 @@
+{
+  "session_ttl": "30m",
+  "assistant": {
+    "target_dir": "target/config-assistant",
+    "archive_dir": "target/config-assistant/archive",
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "model": "qwen3.6",
+      "timeout_seconds": 120
+    }
+  }
+}

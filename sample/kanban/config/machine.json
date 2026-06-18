@@ -1,0 +1,142 @@
+{
+  "comment": "TODO: Sample state machine in progress. Complete conditions to function.",
+  "name": "Kanban Board",
+  "initial_state": "Created",
+  "error_state": "Error",
+  "states": {
+    "Created": {
+      "transitions": [
+        {
+          "id": "work_started",
+          "condition": "",
+          "target": "In Progress"
+        },
+        {
+          "id": "rejected",
+          "condition": "",
+          "target": "QA"
+        },
+        {
+          "id": "stay_created",
+          "condition": "",
+          "target": "Created"
+        }
+      ]
+    },
+    "Bug Fix": {
+      "transitions": [
+        {
+          "id": "stay_bug_fix",
+          "condition": "",
+          "target": "Bug Fix"
+        }
+      ]
+    },
+    "In Progress": {
+      "transitions": [
+        {
+          "id": "start_unit_testing",
+          "condition": "",
+          "target": "Unit Testing"
+        },
+        {
+          "id": "reject_found",
+          "condition": "",
+          "target": "QA"
+        },
+        {
+          "id": "stay_in_progress",
+          "condition": "",
+          "target": "In Progress"
+        }
+      ]
+    },
+    "Unit Testing": {
+      "transitions": [
+        {
+          "id": "return_to_development",
+          "condition": "",
+          "target": "In Progress"
+        },
+        {
+          "id": "to_waiting_for_build",
+          "condition": "",
+          "target": "Waiting for Build"
+        },
+        {
+          "id": "reject_entirely",
+          "condition": "",
+          "target": "QA"
+        },
+        {
+          "id": "stay_unit_testing",
+          "condition": "",
+          "target": "Unit Testing"
+        }
+      ]
+    },
+    "Waiting for Build": {
+      "transitions": [
+        {
+          "id": "build_ready",
+          "condition": "",
+          "target": "QA"
+        },
+        {
+          "id": "stay_waiting_for_build",
+          "condition": "",
+          "target": "Waiting for Build"
+        }
+      ]
+    },
+    "QA": {
+      "transitions": [
+        {
+          "id": "defective_work",
+          "condition": "",
+          "target": "Bug Fix"
+        },
+        {
+          "id": "accepted_work",
+          "condition": "",
+          "target": "Accepted"
+        },
+        {
+          "id": "stay_qa",
+          "condition": "",
+          "target": "QA"
+        }
+      ]
+    },
+    "Accepted": {
+      "transitions": [
+        {
+          "id": "final_review_done",
+          "condition": "",
+          "target": "exit"
+        },
+        {
+          "id": "reopen_rejected",
+          "condition": "",
+          "target": "Created"
+        },
+        {
+          "id": "stay_accepted",
+          "condition": "",
+          "target": "Accepted"
+        }
+      ]
+    },
+    "Error": {
+      "transitions": [
+        {
+          "id": "exit",
+          "target": "exit"
+        }
+      ]
+    },
+    "exit": {
+      "transitions": []
+    }
+  }
+}

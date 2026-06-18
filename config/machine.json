@@ -1,0 +1,40 @@
+{
+  "name": "demo-machine",
+  "initial_state": "start",
+  "error_state": "error",
+  "states": {
+    "start": {
+      "transitions": [
+        {
+          "id": "has_mode_next",
+          "condition": "input_exists:mode",
+          "action": "echo_input",
+          "target": "next"
+        },
+        {
+          "id": "else_to_error",
+          "target": "error"
+        }
+      ]
+    },
+    "next": {
+      "transitions": [
+        {
+          "id": "done_default",
+          "action": "noop",
+          "target": "exit"
+        }
+      ]
+    },
+    "error": {
+      "transitions": [
+        {
+          "id": "exit",
+          "target": "exit"
+        }
+      ]
+    },
+    "exit": {
+    }
+  }
+}

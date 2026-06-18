@@ -7,6 +7,9 @@
 *.dll
 *.so
 *.dylib
+# Exclude specific named binaries created from this project
+state-machine-engine
+sample/kanban/kanban
 
 # Test binary, built with `go test -c`
 *.test
@@ -28,5 +31,8 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+*.iml
+ .idea/
+ .vscode/
+/.idea/
+/target/

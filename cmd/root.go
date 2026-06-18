@@ -25,10 +25,11 @@ func Execute(rt Runtime) {
 
 func newRootCmd(rt Runtime) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "state-machine-engine",
+		Use:   executableName(),
 		Short: "State machine engine CLI",
 		Long:  "Run the state machine server, send requests, or generate config.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			logger.Debug("sending request")
 			socketPath := viper.GetString("socket")
 			input := viper.GetString("input")
 			return rt.RunRequest(socketPath, input)
@@ -37,6 +38,7 @@ func newRootCmd(rt Runtime) *cobra.Command {
 
 	cobra.OnInitialize(initConfig)
 
+	// Remember to use two dashes for long flags, like './state-machine-engine --input "{}"'
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "optional config file path (yaml/json/toml)")
 	rootCmd.PersistentFlags().String("machine", "config/machine.json", "path to state machine definition json")
 	rootCmd.PersistentFlags().String("runtime", "config/runtime.json", "path to runtime config json")
@@ -64,6 +66,11 @@ func newRootCmd(rt Runtime) *cobra.Command {
 
 func defaultSocketPath() string {
 	return filepath.Join(os.TempDir(), "state-machine-engine.sock")
+}
+
+func executableName() string {
+	name := filepath.Base(os.Args[0])
+	return strings.TrimSuffix(name, filepath.Ext(name)) // handles ".exe" on Windows
 }
 
 func initConfig() {

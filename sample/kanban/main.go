@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"state-machine-engine/adapters/actions/registry"
@@ -37,13 +38,13 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 
 	conditions := conditionsregistry.NewEvaluator()
 	conditions.Register("always", conditionsregistry.AlwaysCondition)
-	conditions.Register("input_exists", conditionsregistry.InputExistsCondition)
 	conditions.Register("input_equals", conditionsregistry.InputEqualsCondition)
 
 	actions := registry.NewExecutor()
 	actions.Register("noop", registry.NoopAction)
 	actions.Register("echo_input", registry.EchoInputAction)
-	actions.Register("force_error", registry.ForceErrorAction)
+	actions.Register("echo_target", EchoTargetAction)
+	actions.Register("echo_state_name", EchoStateNameAction)
 
 	observers := []domain.Observer{
 		logobserver.NewObserver(os.Stdout),
@@ -59,6 +60,30 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 
 	return app.NewService(configProvider, sessionStore, validator, conditions, actions, observers)
 	// return r.DefaultRuntime.BuildService(machinePath, runtimePath) // optional fallback
+}
+
+func EchoTargetAction(_ context.Context, _ domain.RequestEnvelope, sess *domain.Session, event domain.TransitionEvent) ([]byte, error) {
+	logger.Debug("To State: " + event.ToState)
+
+	// JSON-shaped payload emitted as plain text.
+	transitionOut := fmt.Sprintf(`{"from":"%s","to":"%s"}`, event.FromState, event.ToState)
+
+	// Save transition output for the state-level action to consume.
+	sess.Data = []byte(transitionOut) // session data can/should be all of the data needed to maintain this session, but this is just for illustrative purposes
+
+	// Important: return nil so engine does not concatenate two JSON documents.
+	return nil, nil
+}
+
+func EchoStateNameAction(_ context.Context, _ domain.RequestEnvelope, sess *domain.Session, _ domain.TransitionEvent) ([]byte, error) {
+	previous := "null"
+	if len(sess.Data) > 0 {
+		previous = string(sess.Data)
+	}
+
+	// JSON-shaped payload emitted as plain text.
+	out := fmt.Sprintf(`{"action_output":%s,"current_state":"%s"}`, previous, sess.State)
+	return []byte(out), nil
 }
 
 func main() {

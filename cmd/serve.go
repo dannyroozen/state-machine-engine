@@ -19,6 +19,7 @@ func newServeCmd(rt Runtime) *cobra.Command {
 			socketPath := viper.GetString("socket")
 
 			service := rt.BuildService(machinePath, runtimePath)
+			logger.Debug("starting server")
 			if err := servers.StartAndListen(socketPath, service); err != nil {
 				return fmt.Errorf("server failed: %w", err)
 			}

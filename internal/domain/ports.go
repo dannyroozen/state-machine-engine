@@ -27,7 +27,7 @@ type ConditionEvaluator interface {
 // ActionExecutor implemented by a plugin,
 // in case downstream implementations want to provide extra tooling or behavior when executing an action.
 type ActionExecutor interface {
-	Execute(ctx context.Context, actionName string, req RequestEnvelope, session *Session) (jsonOutput []byte, err error)
+	Execute(ctx context.Context, actionName string, req RequestEnvelope, session *Session, event TransitionEvent) (jsonOutput []byte, err error)
 }
 
 // Observer to provide behavior that happens when transitioning between states

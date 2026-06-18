@@ -54,7 +54,7 @@ func (condStub) Evaluate(context.Context, string, domain.RequestEnvelope, *domai
 
 type actionStub struct{}
 
-func (actionStub) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session) ([]byte, error) {
+func (actionStub) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session, domain.TransitionEvent) ([]byte, error) {
 	return nil, nil
 }
 

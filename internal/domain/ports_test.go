@@ -27,7 +27,7 @@ func (testConditionEvaluator) Evaluate(context.Context, string, RequestEnvelope,
 
 type testActionExecutor struct{}
 
-func (testActionExecutor) Execute(context.Context, string, RequestEnvelope, *Session) ([]byte, error) {
+func (testActionExecutor) Execute(context.Context, string, RequestEnvelope, *Session, TransitionEvent) ([]byte, error) {
 	return nil, nil
 }
 

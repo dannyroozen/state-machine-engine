@@ -23,7 +23,7 @@ type actionStub struct {
 	err error
 }
 
-func (a actionStub) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session) ([]byte, error) {
+func (a actionStub) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session, domain.TransitionEvent) ([]byte, error) {
 	return a.out, a.err
 }
 

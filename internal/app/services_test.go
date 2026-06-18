@@ -49,7 +49,7 @@ func (condPass) Evaluate(context.Context, string, domain.RequestEnvelope, *domai
 
 type actionNoop struct{}
 
-func (actionNoop) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session) ([]byte, error) {
+func (actionNoop) Execute(context.Context, string, domain.RequestEnvelope, *domain.Session, domain.TransitionEvent) ([]byte, error) {
 	return nil, nil
 }
 

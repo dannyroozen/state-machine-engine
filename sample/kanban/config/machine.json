@@ -5,129 +5,168 @@
   "error_state": "Error",
   "states": {
     "Created": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "work_started",
-          "condition": "",
+          "condition": "input_equals:move_to=In Progress",
+          "action": "echo_target",
           "target": "In Progress"
         },
         {
           "id": "rejected",
-          "condition": "",
+          "condition": "input_equals:screen=working_as_designed || input:screen=wont_fix",
+          "action": "echo_target",
           "target": "QA"
         },
         {
           "id": "stay_created",
           "condition": "",
+          "action": "echo_input",
           "target": "Created"
         }
       ]
     },
     "Bug Fix": {
+      "action": "echo_state_name",
       "transitions": [
+        {
+          "id": "work_started",
+          "condition": "input_equals:move_to=In Progress",
+          "action": "echo_target",
+          "target": "In Progress"
+        },
+        {
+          "id": "rejected",
+          "condition": "input_equals:screen=working_as_designed || screen=wont_fix",
+          "action": "echo_target",
+          "target": "QA"
+        },
         {
           "id": "stay_bug_fix",
           "condition": "",
+          "action": "echo_input",
           "target": "Bug Fix"
         }
       ]
     },
     "In Progress": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "start_unit_testing",
-          "condition": "",
+          "condition": "input_equals:move_to=Unit Testing",
+          "action": "echo_target",
           "target": "Unit Testing"
         },
         {
-          "id": "reject_found",
-          "condition": "",
+          "id": "rejected",
+          "condition": "input_equals:screen=working_as_designed || screen=wont_fix",
+          "action": "echo_target",
           "target": "QA"
         },
         {
           "id": "stay_in_progress",
           "condition": "",
+          "action": "echo_input",
           "target": "In Progress"
         }
       ]
     },
     "Unit Testing": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "return_to_development",
-          "condition": "",
+          "condition": "input_equals:move_to=In Progress",
+          "action": "echo_target",
           "target": "In Progress"
         },
         {
           "id": "to_waiting_for_build",
-          "condition": "",
+          "condition": "input_equals:move_to=Waiting for Build",
+          "action": "echo_target",
           "target": "Waiting for Build"
         },
         {
-          "id": "reject_entirely",
-          "condition": "",
+          "id": "rejected",
+          "condition": "input_equals:screen=working_as_designed || screen=wont_fix",
+          "action": "echo_target",
           "target": "QA"
         },
         {
           "id": "stay_unit_testing",
           "condition": "",
+          "action": "echo_input",
           "target": "Unit Testing"
         }
       ]
     },
     "Waiting for Build": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "build_ready",
-          "condition": "",
+          "condition": "input_equals:move_to=QA",
+          "action": "echo_target",
           "target": "QA"
         },
         {
           "id": "stay_waiting_for_build",
           "condition": "",
+          "action": "echo_input",
           "target": "Waiting for Build"
         }
       ]
     },
     "QA": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "defective_work",
-          "condition": "",
+          "condition": "input_equals:move_to=Bug Fix",
+          "action": "echo_target",
           "target": "Bug Fix"
         },
         {
           "id": "accepted_work",
-          "condition": "",
+          "condition": "input_equals:move_to=Accepted",
+          "action": "echo_target",
           "target": "Accepted"
         },
         {
           "id": "stay_qa",
           "condition": "",
+          "action": "echo_input",
           "target": "QA"
         }
       ]
     },
     "Accepted": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "final_review_done",
-          "condition": "",
+          "condition": "input_equals:closed=true",
+          "action": "echo_target",
           "target": "exit"
         },
         {
           "id": "reopen_rejected",
-          "condition": "",
+          "condition": "input_equals:move_to=Created",
+          "action": "echo_target",
           "target": "Created"
         },
         {
           "id": "stay_accepted",
           "condition": "",
+          "action": "echo_input",
           "target": "Accepted"
         }
       ]
     },
     "Error": {
+      "action": "echo_state_name",
       "transitions": [
         {
           "id": "exit",

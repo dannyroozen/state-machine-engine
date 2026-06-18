@@ -13,8 +13,7 @@ func newConfigCmd(rt Runtime) *cobra.Command {
 			machinePath := viper.GetString("machine")
 			runtimePath := viper.GetString("runtime")
 			model := viper.GetString("model")
-			nonInteractive := viper.GetBool("non-interactive")
-			return rt.RunConfigAssistant(machinePath, runtimePath, model, nonInteractive)
+			return rt.RunConfigAssistant(machinePath, runtimePath, model)
 		},
 	}
 

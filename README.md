@@ -139,7 +139,7 @@ Mental model:
 Defaults:
 
 - `config/machine.json` — state machine definition (example fsm)
-- `config/runtime.json` — runtime operational settings (for example session TTL)
+- `config/runtime.json` — runtime operational settings (for example session TTL and file-backed session location)
 
 ### Machine definition shape
 
@@ -161,8 +161,28 @@ The machine supports:
 
 `runtime.json` includes runtime settings such as:
 
-- `session_ttl` (duration string, e.g. `"30m"`, `"1h"`)
+- `session.ttl` (duration string, e.g. `"30m"`, `"1h"`)
+- `session.file_location` (directory path for file-backed session storage)
 
+Example:
+
+```json 
+    { 
+        "session": { 
+            "ttl": "30m", 
+            "file_location": "target/sessions" 
+        }, 
+        "assistant": { 
+            "target_dir": "target/config-assistant", 
+            "archive_dir": "target/config-assistant/archive", 
+            "ollama": { 
+                "base_url": "[http://localhost:11434](http://localhost:11434)", 
+                "model": "qwen3.6", 
+                "timeout_seconds": 120 
+            } 
+        } 
+    }
+```        
 ---
 
 ## CLI usage

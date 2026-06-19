@@ -1,5 +1,8 @@
 {
-  "session_ttl": "30m",
+  "session": {
+    "ttl": "30m",
+    "file_location": "target/sessions"
+  },
   "assistant": {
     "target_dir": "target/config-assistant",
     "archive_dir": "target/config-assistant/archive",

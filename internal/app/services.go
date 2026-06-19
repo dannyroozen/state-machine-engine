@@ -110,7 +110,7 @@ func (s *Service) ProcessRequest(
 	}
 
 	// length of session increased at each step; for cleanup purposes in case the session is abandoned
-	session.ExpiresAt = now.Add(rtCfg.SessionTTL)
+	session.ExpiresAt = now.Add(rtCfg.Session.TTL)
 	if err = s.sessions.Upsert(ctx, session); err != nil {
 		return domain.ResponseEnvelope{}, err
 	}

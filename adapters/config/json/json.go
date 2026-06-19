@@ -27,8 +27,11 @@ func NewProvider(machinePath, runtimePath string) *Provider {
 }
 
 type runtimeConfigDTO struct {
-	SessionTTL string `json:"session_ttl"`
-	Assistant  struct {
+	Session struct {
+		TTL          string `json:"ttl"`
+		FileLocation string `json:"file_location"`
+	} `json:"session"`
+	Assistant struct {
 		TargetDir  string `json:"target_dir"`
 		ArchiveDir string `json:"archive_dir"`
 		Ollama     struct {
@@ -72,13 +75,16 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 		return nil, fmt.Errorf("invalid runtime json: %v", err)
 	}
 
-	ttl, err := time.ParseDuration(dto.SessionTTL)
+	ttl, err := time.ParseDuration(dto.Session.TTL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid session_ttl: %v", err)
 	}
 
 	cfg := &domain.RuntimeConfig{
-		SessionTTL: ttl,
+		Session: domain.SessionRuntimeConfig{
+			TTL:          ttl,
+			FileLocation: dto.Session.FileLocation,
+		},
 		Assistant: domain.AssistantRuntimeConfig{
 			MaxTurns:   dto.Assistant.MaxTurns,
 			TargetDir:  dto.Assistant.TargetDir,

@@ -37,10 +37,14 @@ type Session struct {
 	ExpiresAt time.Time       `json:"expires_at"`
 }
 
-// RuntimeConfig is our operational config.
 type RuntimeConfig struct {
-	SessionTTL time.Duration          `json:"session_ttl"`
-	Assistant  AssistantRuntimeConfig `json:"assistant,omitempty"`
+	Session   SessionRuntimeConfig   `json:"session"`
+	Assistant AssistantRuntimeConfig `json:"assistant,omitempty"`
+}
+
+type SessionRuntimeConfig struct {
+	TTL          time.Duration `json:"ttl"`
+	FileLocation string        `json:"file_location,omitempty"`
 }
 
 type AssistantRuntimeConfig struct {

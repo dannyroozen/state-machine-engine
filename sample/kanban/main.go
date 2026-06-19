@@ -8,6 +8,7 @@ import (
 	conditionsregistry "state-machine-engine/adapters/conditions/registry"
 	fileconfig "state-machine-engine/adapters/config/json"
 	logobserver "state-machine-engine/adapters/observers/logging"
+	filesession "state-machine-engine/adapters/session/file"
 	"state-machine-engine/adapters/session/memory"
 	"state-machine-engine/cmd"
 	"state-machine-engine/internal/app"
@@ -31,9 +32,20 @@ func NewKanbanRuntime() *KanbanRuntime {
 }
 
 func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Service {
-	// TODO: Supply conditions and actions specific to the Kanban Board state machine.
 	configProvider := fileconfig.NewProvider(machinePath, runtimePath)
-	sessionStore := memory.NewStore()
+
+	var sessionStore domain.SessionStore = memory.NewStore()
+
+	if rtCfg, err := configProvider.LoadRuntimeConfig(context.Background()); err == nil && rtCfg != nil && rtCfg.Session.FileLocation != "" {
+		if fsStore, fsErr := filesession.NewStore(rtCfg.Session.FileLocation); fsErr == nil {
+			sessionStore = fsStore
+		} else {
+			logger.Error(fmt.Sprintf("failed to instantiate file session store: %v", fsErr))
+		}
+	} else if err != nil {
+		logger.Error(fmt.Sprintf("failed to load runtime config: %v", err))
+	}
+
 	validator := validation.NewStateMachineValidator()
 
 	conditions := conditionsregistry.NewEvaluator()
@@ -43,6 +55,7 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 	actions := registry.NewExecutor()
 	actions.Register("noop", registry.NoopAction)
 	actions.Register("echo_input", registry.EchoInputAction)
+	// Add a couple actions specific to the Kanban Board state machine.
 	actions.Register("echo_target", EchoTargetAction)
 	actions.Register("echo_state_name", EchoStateNameAction)
 

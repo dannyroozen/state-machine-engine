@@ -69,7 +69,12 @@ func testMachine() *domain.StateMachine {
 func TestProcessRequest_Success(t *testing.T) {
 	t.Parallel()
 
-	cfg := cfgStub{machine: testMachine(), rt: &domain.RuntimeConfig{SessionTTL: time.Minute}}
+	cfg := cfgStub{
+		machine: testMachine(),
+		rt: &domain.RuntimeConfig{
+			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+		},
+	}
 	store := &storeStub{}
 	svc := NewService(cfg, store, validatorStub{}, condPass{}, actionNoop{}, nil)
 
@@ -91,7 +96,19 @@ func TestProcessRequest_Success(t *testing.T) {
 func TestProcessRequest_InputValidation(t *testing.T) {
 	t.Parallel()
 
-	svc := NewService(cfgStub{machine: testMachine(), rt: &domain.RuntimeConfig{SessionTTL: time.Minute}}, &storeStub{}, validatorStub{}, condPass{}, actionNoop{}, nil)
+	svc := NewService(
+		cfgStub{
+			machine: testMachine(),
+			rt: &domain.RuntimeConfig{
+				Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+			},
+		},
+		&storeStub{},
+		validatorStub{},
+		condPass{},
+		actionNoop{},
+		nil,
+	)
 
 	_, err := svc.ProcessRequest(context.Background(), domain.RequestEnvelope{SessionID: "", Input: []byte(`{}`)}, []byte(`{}`))
 	if !errors.Is(err, ErrMissingSessionID) {
@@ -117,7 +134,12 @@ func TestProcessRequest_DependencyMissing(t *testing.T) {
 func TestProcessRequest_ExpiredSession(t *testing.T) {
 	t.Parallel()
 
-	cfg := cfgStub{machine: testMachine(), rt: &domain.RuntimeConfig{SessionTTL: time.Minute}}
+	cfg := cfgStub{
+		machine: testMachine(),
+		rt: &domain.RuntimeConfig{
+			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+		},
+	}
 	store := &storeStub{
 		session: &domain.Session{
 			ID:        "s1",

@@ -24,7 +24,7 @@ func TestProvider_LoadStateMachine_Success(t *testing.T) {
 	}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(runtimePath, []byte(`{"session_ttl":"30s"}`), 0o600); err != nil {
+	if err := os.WriteFile(runtimePath, []byte(`{"session":{"ttl":"30s"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,7 +71,10 @@ func TestProvider_LoadRuntimeConfig_SuccessAndErrors(t *testing.T) {
 	if err := os.WriteFile(machinePath, []byte(`{"name":"m1","initial_state":"s","error_state":"e","states":{"s":{"transitions":[{"id":"t","target":"exit"}]},"e":{"transitions":[{"id":"te","target":"exit"}]},"exit":{"transitions":[]}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(runtimePath, []byte(`{"session_ttl":"2m","assistant":{"max_turns":55,"ollama":{"base_url":"http://localhost:11434","model":"llama3.1","timeout_seconds":30}}}`), 0o600); err != nil {
+	if err := os.WriteFile(runtimePath, []byte(`{
+		"session":{"ttl":"2m","file_location":"target/sessions"},
+		"assistant":{"max_turns":55,"ollama":{"base_url":"http://localhost:11434","model":"llama3.1","timeout_seconds":30}}
+	}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,8 +83,8 @@ func TestProvider_LoadRuntimeConfig_SuccessAndErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if rt.SessionTTL != 2*time.Minute || rt.Assistant.Ollama.Model != "llama3.1" || rt.Assistant.MaxTurns != 55 {
-		t.Fatalf("unexpected ttl: %v", rt.SessionTTL)
+	if rt.Session.TTL != 2*time.Minute || rt.Assistant.Ollama.Model != "llama3.1" || rt.Assistant.MaxTurns != 55 {
+		t.Fatalf("unexpected ttl: %v", rt.Session.TTL)
 	}
 
 	badRuntime := filepath.Join(dir, "bad-runtime.json")

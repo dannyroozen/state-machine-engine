@@ -31,8 +31,13 @@ func (cfgStub) LoadStateMachine(context.Context) (*domain.StateMachine, error) {
 		},
 	}, nil
 }
+
 func (cfgStub) LoadRuntimeConfig(context.Context) (*domain.RuntimeConfig, error) {
-	return &domain.RuntimeConfig{SessionTTL: time.Minute}, nil
+	return &domain.RuntimeConfig{
+		Session: domain.SessionRuntimeConfig{
+			TTL: time.Minute,
+		},
+	}, nil
 }
 
 type storeStub struct {

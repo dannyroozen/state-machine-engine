@@ -7,10 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"state-machine-engine/internal/logging"
 	"sync"
 
 	"state-machine-engine/internal/domain"
 )
+
+var logger = logging.NewLogger("memory/store")
 
 type Store struct {
 	mu       sync.RWMutex
@@ -18,6 +21,7 @@ type Store struct {
 }
 
 func NewStore() *Store {
+	logger.Debug("instantiating memory session store")
 	return &Store{
 		sessions: make(map[string]domain.Session),
 	}
@@ -26,6 +30,8 @@ func NewStore() *Store {
 // Get a session from our in-memory storage.
 // Thread-safe
 func (s *Store) Get(_ context.Context, sessionID string) (*domain.Session, error) {
+	logger.Debug("memory store session fetch")
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -41,6 +47,7 @@ func (s *Store) Get(_ context.Context, sessionID string) (*domain.Session, error
 // Upsert will insert or update a session into our in-memory storage
 // Thread-safe
 func (s *Store) Upsert(_ context.Context, session *domain.Session) error {
+	logger.Debug("memory store session upsert")
 	if session == nil {
 		return errors.New("invalid input: nil session")
 	}

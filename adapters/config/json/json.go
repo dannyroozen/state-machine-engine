@@ -97,9 +97,6 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 		},
 	}
 
-	if cfg.Session.FileLocation == "" {
-		cfg.Session.FileLocation = "target/sessions"
-	}
 	if cfg.Assistant.TargetDir == "" {
 		cfg.Assistant.TargetDir = "target/config-assistant"
 	}

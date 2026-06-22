@@ -67,6 +67,7 @@ func (e *Engine) Step(
 	}
 
 	fromState := session.State
+	logger.Debug(fmt.Sprintf("step: from state: %s", fromState))
 	if strings.ToLower(fromState) == domain.ExitState {
 		return nil, fmt.Errorf("cannot continue from %s state", domain.ExitState)
 	}
@@ -74,44 +75,55 @@ func (e *Engine) Step(
 	// Upfront validator guarantees state exists, no need to double-check
 	stateDef := machine.States[fromState]
 
-	// Find the next state we should transition to
+	// ## Find the next state we should transition to ##
 	var selected *domain.TransitionDefinition
+	var success = true
+
 	for i := range stateDef.Transitions {
 		// so we can correctly assign a pointer to selected when found
 		transition := &stateDef.Transitions[i]
 
 		// e.conditions assumed to exist be validated on engine startup
-		match, evalErr := e.conditions.Evaluate(ctx, transition.Condition, req, session)
-		if evalErr != nil {
+		var match bool
+		match, err = e.conditions.Evaluate(ctx, transition.Condition, req, session)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error caught when evaluating transition condition: %v", err))
 			// error caught when evaluating transition condition, proceed to error state
 			session.State = machine.ErrorState
-			_ = e.notify(ctx, domain.TransitionEvent{
-				SessionID:   session.ID,
-				MachineName: machine.Name,
-				FromState:   fromState,
-				Transition:  transition.ID,
-				ToState:     machine.ErrorState,
-				Action:      transition.Action,
-				Success:     false,
-				Error:       evalErr.Error(),
-			})
-			return nil, evalErr
+
+			selected = &domain.TransitionDefinition{
+				ID:     transition.ID,
+				Target: machine.ErrorState,
+			}
+
+			success = false
+			break // we don't want to return yet; we need to execute the error state action, if any
 		}
 		if match {
+			logger.Debug(fmt.Sprintf("step: selected transition[index %d]: %s", i, transition.ID))
 			selected = transition
 			break
 		}
 	}
 
-	if selected == nil {
-		// TODO: This should trigger a transition to the error state
-		return nil, errors.New("no transition matched")
+	// ## Check for validity ##
+	if err == nil && selected == nil { // no transition matched, but no error caught
+		logger.Warn("no transition matched, no default transition found")
+
+		// add error state transition to avoid nil checks on selected later
+		selected = &domain.TransitionDefinition{
+			ID:     "engine_errorNoTransitions",
+			Target: machine.ErrorState,
+		}
+
+		session.State = machine.ErrorState
+		success = false
 	}
 
-	// Execute the action associated with the transition, if any
+	// ## Execute the Action associated with the transition, if any
 	var out []byte
-	if selected.Action != "" {
-		logger.Debug("From State: " + fromState)
+	if err == nil && selected.Action != "" {
+		logger.Debug(fmt.Sprintf("Executing action: [%s] ", selected.Action))
 		// e.actions assumed to exist and be validated on engine startup
 		out, err = e.actions.Execute(ctx, selected.Action, req, session,
 			// give the action some context, so it knows things like which state we're going to
@@ -122,51 +134,47 @@ func (e *Engine) Step(
 				Transition:  selected.ID,
 				ToState:     selected.Target,
 				Action:      selected.Action,
+				Success:     success,
 			})
+
 		if err != nil {
+			logger.Error(fmt.Sprintf("error caught when evaluating action: %s", err.Error()))
+			// error caught when evaluating action, proceed to error state
 			session.State = machine.ErrorState
-			_ = e.notify(ctx, domain.TransitionEvent{
-				SessionID:   session.ID,
-				MachineName: machine.Name,
-				FromState:   fromState,
-				Transition:  selected.ID,
-				ToState:     machine.ErrorState,
-				Action:      selected.Action,
-				Success:     false,
-				Error:       err.Error(),
-			})
-			return nil, fmt.Errorf("action failed: %v", err)
+
+			selected = &domain.TransitionDefinition{
+				ID:     "engine_errorNoTransitions",
+				Target: machine.ErrorState,
+			}
+
+			success = false
 		}
 	}
 
 	output = out
 	targetState := selected.Target
 	session.State = selected.Target
-	// Observe the transition
-	_ = e.notify(ctx, domain.TransitionEvent{
+	transitionEvent := domain.TransitionEvent{
 		SessionID:   session.ID,
 		MachineName: machine.Name,
 		FromState:   fromState,
 		Transition:  selected.ID,
 		ToState:     selected.Target,
 		Action:      selected.Action,
-		Success:     true,
-	})
+		Success:     success,
+	}
+	if err != nil {
+		transitionEvent.Error = err.Error()
+	}
 
-	// Unless we've hit the exit state, we should execute any associated action connected with the target state.
-	if strings.ToLower(targetState) != domain.ExitState {
-		targetStateDef := machine.States[targetState]
+	// ## Observe the transition ##
+	_ = e.notify(ctx, transitionEvent)
+
+	// ## Execute State Action ##
+	if strings.ToLower(session.State) != domain.ExitState {
+		targetStateDef := machine.States[session.State]
 		if targetStateDef.Action != "" {
-			out, err = e.actions.Execute(ctx, targetStateDef.Action, req, session,
-				// give the action some context, so it knows things like which state we came from
-				domain.TransitionEvent{
-					SessionID:   session.ID,
-					MachineName: machine.Name,
-					FromState:   fromState,
-					Transition:  selected.ID,
-					ToState:     machine.ErrorState,
-					Action:      selected.Action,
-				})
+			out, err = e.actions.Execute(ctx, targetStateDef.Action, req, session, transitionEvent)
 			if err != nil {
 				session.State = machine.ErrorState
 				_ = e.notify(ctx, domain.TransitionEvent{
@@ -178,7 +186,7 @@ func (e *Engine) Step(
 					Success:     false,
 					Error:       err.Error(),
 				})
-				return nil, fmt.Errorf("action failed: when executing state %q", fromState)
+				return nil, fmt.Errorf("action failed: when executing state [%q]: %v", fromState, err)
 			}
 			// combine output with whatever output we may have received from the action on the transition leading to this state.
 			// it is up to the state machine definition to make sure either actions on transitions don't output,
@@ -190,6 +198,7 @@ func (e *Engine) Step(
 	return
 }
 
+// notify all observers
 func (e *Engine) notify(ctx context.Context, event domain.TransitionEvent) error {
 	for _, obs := range e.observers {
 		if obs == nil {

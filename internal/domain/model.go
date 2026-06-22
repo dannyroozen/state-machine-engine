@@ -48,10 +48,9 @@ type SessionRuntimeConfig struct {
 }
 
 type AssistantRuntimeConfig struct {
-	MaxTurns   int                 `json:"max_turns,omitempty"`
-	TargetDir  string              `json:"target_dir,omitempty"`
-	ArchiveDir string              `json:"archive_dir,omitempty"`
-	Ollama     OllamaRuntimeConfig `json:"ollama,omitempty"`
+	MaxTurns  int                 `json:"max_turns,omitempty"`
+	TargetDir string              `json:"target_dir,omitempty"`
+	Ollama    OllamaRuntimeConfig `json:"ollama,omitempty"`
 }
 
 type OllamaRuntimeConfig struct {

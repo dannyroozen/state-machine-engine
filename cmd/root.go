@@ -44,20 +44,12 @@ func newRootCmd(rt Runtime) *cobra.Command {
 	rootCmd.PersistentFlags().String("runtime", "config/runtime.json", "path to runtime config json")
 	rootCmd.PersistentFlags().String("socket", defaultSocketPath(), "path to the unix domain socket")
 	rootCmd.PersistentFlags().String("input", "", "json input containing the request envelope (session id, input)")
-	rootCmd.PersistentFlags().Int("log-maxsize", 50, "max size in MB of each log file before rotation")
-	rootCmd.PersistentFlags().Int("log-maxbackups", 5, "max number of old log files to keep")
-	rootCmd.PersistentFlags().Int("log-maxage", 30, "max number of days to retain old log files")
-	rootCmd.PersistentFlags().String("log-level", "debug", "log level (debug, info, warn, error, dpanic, panic, fatal)")
 
 	mustBindFlag(rootCmd, "config")
 	mustBindFlag(rootCmd, "machine")
 	mustBindFlag(rootCmd, "runtime")
 	mustBindFlag(rootCmd, "socket")
 	mustBindFlag(rootCmd, "input")
-	mustBindFlag(rootCmd, "log-maxsize")
-	mustBindFlag(rootCmd, "log-maxbackups")
-	mustBindFlag(rootCmd, "log-maxage")
-	mustBindFlag(rootCmd, "log-level")
 
 	rootCmd.AddCommand(newServeCmd(rt))
 	rootCmd.AddCommand(newConfigCmd(rt))
@@ -74,6 +66,7 @@ func executableName() string {
 }
 
 func initConfig() {
+	fmt.Println("initializing config")
 	viper.SetEnvPrefix("SME")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv()
@@ -82,6 +75,8 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 		if err := viper.ReadInConfig(); err != nil {
 			logger.Warn(fmt.Sprintf("failed to read config file %q: %v", cfgFile, err))
+		} else {
+			fmt.Println("successfully read config file")
 		}
 	}
 }

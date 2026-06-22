@@ -27,6 +27,12 @@ func (c cfgStub) LoadRuntimeConfig(context.Context) (*domain.RuntimeConfig, erro
 	}
 	return c.rt, nil
 }
+func (c cfgStub) GetSchema(context.Context) ([]byte, error) {
+	return nil, nil
+}
+func (c cfgStub) WriteStateMachineToFile(context.Context, *domain.StateMachine, string) (string, error) {
+	return "target/config-assistant/state-machine.json", nil
+}
 
 type storeStub struct {
 	session *domain.Session

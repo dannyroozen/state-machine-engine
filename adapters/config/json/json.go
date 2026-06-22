@@ -9,7 +9,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+	"unicode"
+
+	"github.com/invopop/jsonschema"
 
 	"state-machine-engine/internal/domain"
 )
@@ -64,6 +68,54 @@ func (p *Provider) LoadStateMachineRaw(_ context.Context) ([]byte, error) {
 	return raw, nil
 }
 
+func (p *Provider) GetSchema(_ context.Context) ([]byte, error) {
+	reflector := &jsonschema.Reflector{}
+	schema := reflector.Reflect(&domain.StateMachine{})
+
+	raw, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed marshaling state machine schema: %v", err)
+	}
+	return raw, nil
+}
+
+func (p *Provider) WriteStateMachineToFile(ctx context.Context, machine *domain.StateMachine, targetDir string) (string, error) {
+	if machine == nil {
+		return "", fmt.Errorf("machine is required")
+	}
+	if strings.TrimSpace(targetDir) == "" {
+		return "", fmt.Errorf("target directory is required")
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed creating target directory: %v", err)
+	}
+
+	base := sanitizeFileBase(machine.Name)
+	if base == "" {
+		base = "state-machine"
+	}
+	outPath := filepath.Join(targetDir, base+".json")
+	if err := p.WriteStateMachineAtPath(ctx, machine, outPath); err != nil {
+		return "", err
+	}
+	return outPath, nil
+}
+
+func sanitizeFileBase(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return ""
+	}
+	s := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' {
+			return r
+		}
+		return '-'
+	}, input)
+	s = strings.Trim(s, "-_")
+	return s
+}
+
 func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, error) {
 	raw, err := os.ReadFile(p.runtimePath)
 	if err != nil {
@@ -86,9 +138,8 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 			FileLocation: dto.Session.FileLocation,
 		},
 		Assistant: domain.AssistantRuntimeConfig{
-			MaxTurns:   dto.Assistant.MaxTurns,
-			TargetDir:  dto.Assistant.TargetDir,
-			ArchiveDir: dto.Assistant.ArchiveDir,
+			MaxTurns:  dto.Assistant.MaxTurns,
+			TargetDir: dto.Assistant.TargetDir,
 			Ollama: domain.OllamaRuntimeConfig{
 				BaseURL:        dto.Assistant.Ollama.BaseURL,
 				Model:          dto.Assistant.Ollama.Model,
@@ -99,9 +150,6 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 
 	if cfg.Assistant.TargetDir == "" {
 		cfg.Assistant.TargetDir = "target/config-assistant"
-	}
-	if cfg.Assistant.ArchiveDir == "" {
-		cfg.Assistant.ArchiveDir = filepath.Join(cfg.Assistant.TargetDir, "archive")
 	}
 	if cfg.Assistant.MaxTurns <= 0 {
 		cfg.Assistant.MaxTurns = 40
@@ -116,42 +164,16 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 	return cfg, nil
 }
 
-func (p *Provider) PrepareTargetNamespace(_ context.Context, targetDir, archiveDir string) (string, string, error) {
+func (p *Provider) PrepareTargetNamespace(_ context.Context, targetDir string) (string, error) {
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return "", "", fmt.Errorf("failed creating target dir: %v", err)
-	}
-	if err := os.MkdirAll(archiveDir, 0o755); err != nil {
-		return "", "", fmt.Errorf("failed creating archive dir: %v", err)
-	}
-
-	entries, err := os.ReadDir(targetDir)
-	if err != nil {
-		return "", "", fmt.Errorf("failed reading target dir: %v", err)
-	}
-
-	archiveBatch := ""
-	if len(entries) > 0 {
-		archiveBatch = filepath.Join(archiveDir, time.Now().Format("20060102-150405"))
-		if err := os.MkdirAll(archiveBatch, 0o755); err != nil {
-			return "", "", fmt.Errorf("failed creating archive batch dir: %v", err)
-		}
-		for _, entry := range entries {
-			if entry.Name() == "archive" {
-				continue
-			}
-			src := filepath.Join(targetDir, entry.Name())
-			dst := filepath.Join(archiveBatch, entry.Name())
-			if err := os.Rename(src, dst); err != nil {
-				return "", "", fmt.Errorf("failed archiving %s: %v", entry.Name(), err)
-			}
-		}
+		return "", fmt.Errorf("failed creating target dir: %v", err)
 	}
 
 	namespaceDir := filepath.Join(targetDir, "run-"+time.Now().Format("20060102-150405"))
 	if err := os.MkdirAll(namespaceDir, 0o755); err != nil {
-		return "", "", fmt.Errorf("failed creating namespace dir: %v", err)
+		return "", fmt.Errorf("failed creating namespace dir: %v", err)
 	}
-	return namespaceDir, archiveBatch, nil
+	return namespaceDir, nil
 }
 
 func (p *Provider) WriteStateMachineAtPath(_ context.Context, machine *domain.StateMachine, outPath string) error {

@@ -2,8 +2,10 @@ package json
 
 import (
 	"context"
+	stdjson "encoding/json"
 	"os"
 	"path/filepath"
+	"state-machine-engine/internal/domain"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +38,86 @@ func TestProvider_LoadStateMachine_Success(t *testing.T) {
 	}
 	if m.Name != "m1" || m.Initial != "start" || m.ErrorState != "error" {
 		t.Fatalf("unexpected machine: %+v", m)
+	}
+}
+
+func TestProvider_WriteStateMachineToFile_Success(t *testing.T) {
+	t.Parallel()
+
+	p := NewProvider("", "")
+	targetDir := t.TempDir()
+
+	machine := &domain.StateMachine{
+		Name:       "order flow",
+		Initial:    "start",
+		ErrorState: "error",
+		States: map[string]domain.StateDefinition{
+			"start": {Transitions: []domain.TransitionDefinition{{ID: "t1", Target: "exit"}}},
+			"error": {Transitions: []domain.TransitionDefinition{{ID: "te", Target: "exit"}}},
+			"exit":  {},
+		},
+	}
+
+	outPath, err := p.WriteStateMachineToFile(context.Background(), machine, targetDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(outPath, targetDir) {
+		t.Fatalf("expected output in target dir, got %s", outPath)
+	}
+	if _, statErr := os.Stat(outPath); statErr != nil {
+		t.Fatalf("expected file to exist: %v", statErr)
+	}
+
+	raw, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("failed reading output file: %v", err)
+	}
+
+	var saved domain.StateMachine
+	if err = stdjson.Unmarshal(raw, &saved); err != nil {
+		t.Fatalf("saved file is not valid json: %v", err)
+	}
+	if saved.Name != "order flow" || saved.Initial != "start" || saved.ErrorState != "error" {
+		t.Fatalf("unexpected saved machine: %+v", saved)
+	}
+}
+
+func TestProvider_GetSchema_Success(t *testing.T) {
+	t.Parallel()
+
+	p := NewProvider("", "")
+
+	raw, err := p.GetSchema(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(raw) == 0 {
+		t.Fatal("expected non-empty schema")
+	}
+
+	var schema map[string]any
+	if err = stdjson.Unmarshal(raw, &schema); err != nil {
+		t.Fatalf("schema must be valid json: %v", err)
+	}
+
+	if _, ok := schema["$defs"].(map[string]any); !ok {
+		t.Fatalf("expected schema to contain $defs")
+	}
+
+	if _, ok := schema["$defs"].(map[string]any)["StateMachine"].(map[string]any); !ok {
+		t.Fatalf("expected schema to contain $defs.StateMachine")
+	}
+
+	properties, ok := schema["$defs"].(map[string]any)["StateMachine"].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema to contain $defs.StateMachine.properties")
+	}
+
+	for _, key := range []string{"name", "initial_state", "error_state", "states"} {
+		if _, found := properties[key]; !found {
+			t.Fatalf("expected schema property %q", key)
+		}
 	}
 }
 

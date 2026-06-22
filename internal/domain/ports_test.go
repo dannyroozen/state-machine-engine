@@ -13,6 +13,12 @@ func (testConfigProvider) LoadStateMachine(context.Context) (*StateMachine, erro
 func (testConfigProvider) LoadRuntimeConfig(context.Context) (*RuntimeConfig, error) {
 	return &RuntimeConfig{}, nil
 }
+func (testConfigProvider) GetSchema(context.Context) ([]byte, error) {
+	return []byte(`{}`), nil
+}
+func (testConfigProvider) WriteStateMachineToFile(context.Context, *StateMachine, string) (string, error) {
+	return "target/config-assistant/state-machine.json", nil
+}
 
 type testSessionStore struct{}
 

@@ -29,6 +29,8 @@ var (
 )
 
 func init() {
+	// Check for log-config.yaml up front. We need to configure the logging on initialization, so we can't wait for
+	// the config presented by the command line flags.
 	viper.SetConfigName("log-config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./config")
@@ -63,6 +65,7 @@ func init() {
 }
 
 func initSinks() {
+	// Multiple loggers are created, one for each package, so we want to make sure we have only one sink to manage rollovers, etc.
 	sinksOnce.Do(func() {
 		appFileSink = zapcore.AddSync(&lumberjack.Logger{
 			Filename:   filepath.Join(baseDir, fmt.Sprintf("%s.log", getAppName())),
@@ -97,7 +100,10 @@ func getAppName() string {
 
 func getLogLevel(level string) zap.AtomicLevel {
 	lvl := zapcore.DebugLevel
-	_ = lvl.UnmarshalText([]byte(level))
+	// turn level into a zapcore.Level
+	if err := lvl.UnmarshalText([]byte(level)); err != nil {
+		fmt.Println(fmt.Sprintf("Error parsing log level %s, using Debug as default: %v", level, err))
+	}
 	return zap.NewAtomicLevelAt(lvl)
 }
 

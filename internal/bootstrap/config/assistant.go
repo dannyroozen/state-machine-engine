@@ -72,12 +72,14 @@ func (a *RunAssistant) Run(ctx context.Context, runtimeCfg *domain.RuntimeConfig
 		log.Fatal(err)
 	}
 
+	// prepare output directory
 	targetDir := runtimeCfg.Assistant.TargetDir
 	namespaceDir, err := a.store.PrepareTargetNamespace(ctx, targetDir)
 	if err != nil {
 		return err
 	}
 
+	// schema dynamically provided by the chosen ConfigProvider
 	schema, err := a.store.GetSchema(ctx)
 	if err != nil {
 		return err
@@ -126,11 +128,11 @@ There should be one "exit" state (lower case) for every state machine and to end
 	}
 
 	console := rich.NewConsole(a.out)
-	if _, err = console.PrintMarkupln("[yellow]To exit the conversation, at any time type 'exit' or 'quit'.[/yellow]"); err != nil {
+	if _, err = console.PrintMarkupln("[yellow]To exit the conversation, at any time type 'exit' or 'quit'.[/]"); err != nil {
 		return err
 	}
 
-	if _, err = console.PrintMarkup("[green][b]Assistant[/b][/green]:  What kind of state machine can I help you build today?\n[blue][b]You[/b][/blue]: "); err != nil {
+	if _, err = console.PrintMarkup("[green and bold]Assistant[/]:  What kind of state machine can I help you build today?\n[blue and bold]You[/]: "); err != nil {
 		return err
 	}
 
@@ -161,7 +163,7 @@ There should be one "exit" state (lower case) for every state machine and to end
 			assistantText.Reset()
 
 			// Check to see if we need to run a tool
-			handled, toolResult, toolErr := maybeRunAssistantTool(ctx, a.store, namespaceDir, messages[len(messages)-1].Content)
+			handled, toolResult, toolErr := checkRunTools(ctx, a.store, namespaceDir, messages[len(messages)-1].Content)
 			if handled {
 				// Handle tool result
 				if toolErr != nil {
@@ -189,7 +191,7 @@ There should be one "exit" state (lower case) for every state machine and to end
 	}
 
 	for {
-		if _, err = console.PrintMarkup("[green][b]Assistant[/b][/green]: "); err != nil {
+		if _, err = console.PrintMarkup("[green and bold]Assistant[/]: "); err != nil {
 			return err
 		}
 
@@ -200,7 +202,7 @@ There should be one "exit" state (lower case) for every state machine and to end
 		}
 
 		// Collect user response
-		if _, err = console.PrintMarkup("[blue][b]You[/b][/blue]: "); err != nil {
+		if _, err = console.PrintMarkup("[blue and bold]You[/]: "); err != nil {
 			return err
 		}
 

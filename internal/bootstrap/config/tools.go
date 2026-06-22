@@ -40,7 +40,8 @@ Only call this tool after the user confirms they are ready to save.
 `
 }
 
-func maybeRunAssistantTool(
+// checkRunTools will analyze the output from the AI assistant to see if a tool should be run.
+func checkRunTools(
 	ctx context.Context,
 	store AssistantToolStore,
 	namespaceDir string,

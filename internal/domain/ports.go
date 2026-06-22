@@ -8,6 +8,8 @@ import "context"
 type ConfigProvider interface {
 	LoadStateMachine(ctx context.Context) (*StateMachine, error)
 	LoadRuntimeConfig(ctx context.Context) (*RuntimeConfig, error)
+	GetSchema(ctx context.Context) ([]byte, error)
+	WriteStateMachineToFile(ctx context.Context, machine *StateMachine, targetDir string) (string, error)
 }
 
 // SessionStore implemented by a session plugin.

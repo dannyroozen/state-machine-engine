@@ -29,6 +29,17 @@ var (
 )
 
 func init() {
+	viper.SetConfigName("log-config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./config")
+	viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println(fmt.Sprintf("viper attempted to read log-config.yaml, but failed to read config file: %v\n", err))
+		fmt.Println("this may be expected if no config file exists")
+	} else {
+		fmt.Println("successfully read log-config.yaml config file")
+	}
+
 	baseDir = os.Getenv("LOG_DIR")
 	if baseDir == "" {
 		home, err := os.UserHomeDir()

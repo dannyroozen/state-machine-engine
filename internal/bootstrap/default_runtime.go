@@ -53,7 +53,7 @@ func (r *DefaultRuntime) BuildService(machinePath, runtimePath string) *app.Serv
 		logger.Fatal(fmt.Sprintf("failed to validate state machine: %v", err))
 	}
 
-	return app.NewService(configProvider, sessionStore, validator, conditions, actions, observers)
+	return app.NewService(configProvider, configProvider, sessionStore, validator, conditions, actions, observers)
 }
 
 func (r *DefaultRuntime) RunRequest(socketPath, input string) error {

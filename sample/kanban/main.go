@@ -41,6 +41,7 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 			sessionStore = fsStore
 		} else {
 			logger.Error(fmt.Sprintf("failed to instantiate file session store: %v", fsErr))
+			// TODO: Should this be fatal?
 		}
 	} else if err != nil {
 		logger.Error(fmt.Sprintf("failed to load runtime config: %v", err))
@@ -55,7 +56,7 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 	actions := registry.NewExecutor()
 	actions.Register("noop", registry.NoopAction)
 	actions.Register("echo_input", registry.EchoInputAction)
-	// Add a couple actions specific to the Kanban Board state machine.
+	// Add a couple of actions specific to the Kanban Board state machine.
 	actions.Register("echo_target", EchoTargetAction)
 	actions.Register("echo_state_name", EchoStateNameAction)
 
@@ -71,8 +72,7 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 		logger.Fatal(fmt.Sprintf("failed to validate state machine: %v", err))
 	}
 
-	return app.NewService(configProvider, sessionStore, validator, conditions, actions, observers)
-	// return r.DefaultRuntime.BuildService(machinePath, runtimePath) // optional fallback
+	return app.NewService(configProvider, configProvider, sessionStore, validator, conditions, actions, observers)
 }
 
 func EchoTargetAction(_ context.Context, _ domain.RequestEnvelope, sess *domain.Session, event domain.TransitionEvent) ([]byte, error) {

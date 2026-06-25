@@ -20,13 +20,18 @@ var (
 )
 
 type Service struct {
+	machine   domain.ConfigProvider
 	config    domain.ConfigProvider
 	sessions  domain.SessionStore
 	validator domain.Validator
 	engine    *engine.Engine
 }
 
+// NewService sets up the service to process requests and run the state machine engine
+// machine and config are both ConfigProviders, but as separate arguments we allow for each to be configured differently
+// (e.g. runtime config loaded via json, while state machine comes from the scxml standard)
 func NewService(
+	machine domain.ConfigProvider,
 	config domain.ConfigProvider,
 	sessions domain.SessionStore,
 	validator domain.Validator,
@@ -35,6 +40,7 @@ func NewService(
 	observers []domain.Observer,
 ) *Service {
 	return &Service{
+		machine:   machine,
 		config:    config,
 		sessions:  sessions,
 		validator: validator,
@@ -58,11 +64,12 @@ func (s *Service) ProcessRequest(
 	}
 
 	// Step 1 returns a clear dependency error until adapters are wired.
-	if s.config == nil || s.sessions == nil || s.validator == nil || s.engine == nil {
+	if s.machine == nil || s.config == nil || s.sessions == nil || s.validator == nil || s.engine == nil {
 		return domain.ResponseEnvelope{}, ErrDependencyMissing
 	}
 
-	machine, err := s.config.LoadStateMachine(ctx)
+	// TODO: loading the state machine here would allow us to change the state machine during runtime, but loading it on creation saves time/processing during request
+	machine, err := s.machine.LoadStateMachine(ctx)
 	if err != nil {
 		return domain.ResponseEnvelope{}, err
 	}
@@ -89,7 +96,7 @@ func (s *Service) ProcessRequest(
 	now := time.Now()
 	if !session.ExpiresAt.IsZero() && now.After(session.ExpiresAt) {
 		// This will store all sessions forever and simply reject future uses of the same session ID
-		// TODO: Consider removing the session, perhaps in an asychronous routine that evaluates all sessions, to remove stale sessions, perhaps after a certain amount of time
+		// TODO: Consider removing the session, perhaps in an asynchronous routine that evaluates all sessions, to remove stale sessions, perhaps after a certain amount of time
 		// Though that could be unnecessary if the underlying session manager handles stale sessions itself, like DynamoDB.
 		return domain.ResponseEnvelope{}, ErrSessionExpired
 	}

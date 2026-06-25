@@ -38,12 +38,12 @@ func newRootCmd(rt Runtime) *cobra.Command {
 
 	cobra.OnInitialize(initConfig)
 
-	// Remember to use two dashes for long flags, like './state-machine-engine --input "{}"'
+	// Remember to use two dashes for long flags, like: ./state-machine-engine --input '{"session_id":"", "input": {}}'
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "optional config file path (yaml/json/toml)")
 	rootCmd.PersistentFlags().String("machine", "config/machine.json", "path to state machine definition json")
 	rootCmd.PersistentFlags().String("runtime", "config/runtime.json", "path to runtime config json")
 	rootCmd.PersistentFlags().String("socket", defaultSocketPath(), "path to the unix domain socket")
-	rootCmd.PersistentFlags().String("input", "", "json input containing the request envelope (session id, input)")
+	rootCmd.PersistentFlags().String("input", "", `json input containing the request envelope {"session id":"", "input": {}}`)
 
 	mustBindFlag(rootCmd, "config")
 	mustBindFlag(rootCmd, "machine")

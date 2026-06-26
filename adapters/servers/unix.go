@@ -44,6 +44,12 @@ func StartAndListen(socketPath string, service *app.Service) error {
 	mux.HandleFunc("POST /requests", func(w http.ResponseWriter, r *http.Request) {
 		handleRequest(service, w, r) // one handler to rule them all
 	})
+	mux.HandleFunc("GET /stats", func(w http.ResponseWriter, r *http.Request) {
+		handleStats(service, w, r)
+	})
+	mux.HandleFunc("DELETE /sessions/expired", func(w http.ResponseWriter, r *http.Request) {
+		handleDeleteExpired(service, w, r)
+	})
 
 	server := &http.Server{Handler: mux}
 
@@ -77,14 +83,66 @@ func StartAndListen(socketPath string, service *app.Service) error {
 	}
 }
 
-// handleRequest will route and process all incoming requests
+func handleStats(service *app.Service, w http.ResponseWriter, r *http.Request) {
+	logger.Debug("entered handleStats")
+
+	stats, err := service.Stats(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "stats_failed", err.Error())
+		return
+	}
+
+	responseBody, err := json.MarshalIndent(stats, "", "  ")
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to prepare stats response: %v", err))
+		writeError(w, http.StatusInternalServerError, "stats_failed", err.Error())
+		return
+	}
+
+	logger.Debug(fmt.Sprintf("handleStats response body: %s", string(responseBody)))
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err = w.Write(append(responseBody, '\n')); err != nil {
+		logger.Error(fmt.Sprintf("failed to write stats response: %v", err))
+	}
+}
+
+// handleDeleteExpired removes all expired sessions and returns the count deleted.
+func handleDeleteExpired(service *app.Service, w http.ResponseWriter, r *http.Request) {
+	logger.Debug("entered handleDeleteExpired")
+
+	deleted, err := service.DeleteExpired(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "delete_expired_failed", err.Error())
+		return
+	}
+
+	responseBody, err := json.MarshalIndent(map[string]int{"deleted": deleted}, "", "  ")
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to prepare delete_expired response: %v", err))
+		writeError(w, http.StatusInternalServerError, "delete_expired_failed", err.Error())
+		return
+	}
+
+	logger.Debug(fmt.Sprintf("handleDeleteExpired response body: %s", string(responseBody)))
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err = w.Write(append(responseBody, '\n')); err != nil {
+		logger.Error(fmt.Sprintf("failed to write delete_expired response: %v", err))
+	}
+}
+
 func handleRequest(service *app.Service, w http.ResponseWriter, r *http.Request) {
+	logger.Debug("entered handleRequest")
+
 	// limit size of request, especially useful in our implementation so that we can switch to a tcp REST sever in the future without concern
 	body, err := io.ReadAll(io.LimitReader(r.Body, domain.MaxRequestSizeBytes+1))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "read_failed", err.Error())
 		return
 	}
+
+	logger.Debug(fmt.Sprintf("handleRequest request body: %s", string(body)))
 
 	var req domain.RequestEnvelope
 	if err := json.Unmarshal(body, &req); err != nil {
@@ -98,10 +156,18 @@ func handleRequest(service *app.Service, w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	transportResp := makeTransportResponse(resp)
+	responseBody, err := json.MarshalIndent(transportResp, "", "  ")
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to prepare response: %v", err))
+		writeError(w, http.StatusInternalServerError, "process_failed", err.Error())
+		return
+	}
+
+	logger.Debug(fmt.Sprintf("handleRequest response body: %s", string(responseBody)))
+
 	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err = enc.Encode(makeTransportResponse(resp)); err != nil {
+	if _, err = w.Write(append(responseBody, '\n')); err != nil {
 		logger.Error(fmt.Sprintf("failed to write response: %v", err))
 	}
 }
@@ -164,7 +230,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 }
 
 // RunClient handles non-server executions, sending a new request to an assumed running server
-func RunClient(socketPath, input string) error {
+func RunClient(socketPath, input, endpoint string) error {
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -175,8 +241,35 @@ func RunClient(socketPath, input string) error {
 		Timeout: 30 * time.Second,
 	}
 
-	// Host is a placeholder; routing happens over the unix socket.
-	resp, err := client.Post("http://state-machine/requests", "application/json", bytes.NewReader([]byte(input)))
+	method := http.MethodPost
+	if endpoint == "" {
+		endpoint = "requests"
+	} else {
+		if strings.HasPrefix(endpoint, "/") {
+			endpoint = endpoint[1:]
+		}
+		switch endpoint {
+		case "stats":
+			method = http.MethodGet
+		case "sessions/expired":
+			method = http.MethodDelete
+		}
+	}
+
+	var body io.Reader
+	if method == http.MethodPost {
+		body = bytes.NewReader([]byte(input))
+	}
+
+	req, err := http.NewRequest(method, "http://state-machine/"+endpoint, body)
+	if err != nil {
+		return fmt.Errorf("failed to build request: %w", err)
+	}
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("is the server running? start it with -serve. dial error: %w", err)
 	}

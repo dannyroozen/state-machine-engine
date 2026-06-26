@@ -56,8 +56,8 @@ func (r *DefaultRuntime) BuildService(machinePath, runtimePath string) *app.Serv
 	return app.NewService(configProvider, configProvider, sessionStore, validator, conditions, actions, observers)
 }
 
-func (r *DefaultRuntime) RunRequest(socketPath, input string) error {
-	if err := servers.RunClient(socketPath, input); err != nil {
+func (r *DefaultRuntime) RunRequest(socketPath, input, endpoint string) error {
+	if err := servers.RunClient(socketPath, input, endpoint); err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 	return nil

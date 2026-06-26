@@ -35,11 +35,24 @@ func (c cfgStub) WriteStateMachineToFile(context.Context, *domain.StateMachine, 
 }
 
 type storeStub struct {
-	session *domain.Session
-	getErr  error
-	putErr  error
+	session   *domain.Session
+	getErr    error
+	putErr    error
+	stats     domain.SessionStats
+	statsErr  error
+	deleted   int
+	deleteErr error
 }
 
+func (s *storeStub) DeleteExpired(context.Context) (int, error) {
+	return s.deleted, s.deleteErr
+}
+func (s *storeStub) ActiveCount(context.Context) (int, error) {
+	return 0, nil
+}
+func (s *storeStub) Stats(context.Context) (domain.SessionStats, error) {
+	return s.stats, s.statsErr
+}
 func (s *storeStub) Get(context.Context, string) (*domain.Session, error) { return s.session, s.getErr }
 func (s *storeStub) Upsert(context.Context, *domain.Session) error        { return s.putErr }
 
@@ -82,7 +95,7 @@ func TestProcessRequest_Success(t *testing.T) {
 		},
 	}
 	store := &storeStub{}
-	svc := NewService(cfg, store, validatorStub{}, condPass{}, actionNoop{}, nil)
+	svc := NewService(cfg, cfg, store, validatorStub{}, condPass{}, actionNoop{}, nil)
 
 	resp, err := svc.ProcessRequest(context.Background(), domain.RequestEnvelope{
 		SessionID: "s1",
@@ -102,13 +115,16 @@ func TestProcessRequest_Success(t *testing.T) {
 func TestProcessRequest_InputValidation(t *testing.T) {
 	t.Parallel()
 
-	svc := NewService(
-		cfgStub{
-			machine: testMachine(),
-			rt: &domain.RuntimeConfig{
-				Session: domain.SessionRuntimeConfig{TTL: time.Minute},
-			},
+	cfg := cfgStub{
+		machine: testMachine(),
+		rt: &domain.RuntimeConfig{
+			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
 		},
+	}
+
+	svc := NewService(
+		cfg,
+		cfg,
 		&storeStub{},
 		validatorStub{},
 		condPass{},
@@ -153,7 +169,7 @@ func TestProcessRequest_ExpiredSession(t *testing.T) {
 			ExpiresAt: time.Now().Add(-time.Minute),
 		},
 	}
-	svc := NewService(cfg, store, validatorStub{}, condPass{}, actionNoop{}, nil)
+	svc := NewService(cfg, cfg, store, validatorStub{}, condPass{}, actionNoop{}, nil)
 
 	_, err := svc.ProcessRequest(context.Background(), domain.RequestEnvelope{SessionID: "s1"}, []byte(`{}`))
 	if !errors.Is(err, ErrSessionExpired) {

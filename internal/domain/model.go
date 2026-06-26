@@ -37,6 +37,16 @@ type Session struct {
 	ExpiresAt time.Time       `json:"expires_at"`
 }
 
+// SessionStats provides a snapshot of session population relative to `now`.
+type SessionStats struct {
+	Total          int        `json:"total"`
+	Active         int        `json:"active"`
+	Expired        int        `json:"expired"`
+	WithoutExpiry  int        `json:"without_expiry"`
+	EarliestExpiry *time.Time `json:"earliest_expiry,omitempty"`
+	LatestExpiry   *time.Time `json:"latest_expiry,omitempty"`
+}
+
 type RuntimeConfig struct {
 	Session   SessionRuntimeConfig   `json:"session"`
 	Assistant AssistantRuntimeConfig `json:"assistant,omitempty"`

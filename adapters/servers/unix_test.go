@@ -49,11 +49,24 @@ func (cfgStub) WriteStateMachineToFile(context.Context, *domain.StateMachine, st
 }
 
 type storeStub struct {
-	s *domain.Session
+	s         *domain.Session
+	stats     domain.SessionStats
+	statsErr  error
+	deleted   int
+	deleteErr error
 }
 
 func (s *storeStub) Get(context.Context, string) (*domain.Session, error) { return s.s, nil }
 func (s *storeStub) Upsert(context.Context, *domain.Session) error        { return nil }
+func (s *storeStub) DeleteExpired(context.Context) (int, error) {
+	return s.deleted, s.deleteErr
+}
+func (s *storeStub) ActiveCount(context.Context) (int, error) {
+	return 0, nil
+}
+func (s *storeStub) Stats(context.Context) (domain.SessionStats, error) {
+	return s.stats, s.statsErr
+}
 
 type validatorStub struct{}
 
@@ -71,8 +84,12 @@ func (actionStub) Execute(context.Context, string, domain.RequestEnvelope, *doma
 	return nil, nil
 }
 
+func testServiceWithStore(store *storeStub) *app.Service {
+	return app.NewService(cfgStub{}, cfgStub{}, store, validatorStub{}, condStub{}, actionStub{}, nil)
+}
+
 func testService() *app.Service {
-	return app.NewService(cfgStub{}, &storeStub{}, validatorStub{}, condStub{}, actionStub{}, nil)
+	return app.NewService(cfgStub{}, cfgStub{}, &storeStub{}, validatorStub{}, condStub{}, actionStub{}, nil)
 }
 
 func TestHandleRequest_Success(t *testing.T) {
@@ -148,5 +165,103 @@ func TestStartAndListen_AlreadyRunning(t *testing.T) {
 	}
 	if !errors.Is(err, err) { // keep vet happy while still checking message below
 		t.Fatal("unexpected nil-ish error")
+	}
+}
+
+func TestHandleStats_Success(t *testing.T) {
+	t.Parallel()
+
+	store := &storeStub{
+		stats: domain.SessionStats{
+			Total:   3,
+			Active:  2,
+			Expired: 1,
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/stats", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	handleStats(testServiceWithStore(store), rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json content-type, got %s", ct)
+	}
+
+	var got domain.SessionStats
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if got.Total != 3 || got.Active != 2 || got.Expired != 1 {
+		t.Fatalf("unexpected stats: %+v", got)
+	}
+}
+
+func TestHandleStats_Error(t *testing.T) {
+	t.Parallel()
+
+	store := &storeStub{statsErr: errors.New("store unavailable")}
+	req := httptest.NewRequest(http.MethodGet, "/stats", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	handleStats(testServiceWithStore(store), rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rr.Code)
+	}
+	var resp domain.ResponseEnvelope
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != "stats_failed" {
+		t.Fatalf("unexpected error payload: %+v", resp.Error)
+	}
+}
+
+func TestHandleDeleteExpired_Success(t *testing.T) {
+	t.Parallel()
+
+	store := &storeStub{deleted: 5}
+	req := httptest.NewRequest(http.MethodDelete, "/sessions/expired", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	handleDeleteExpired(testServiceWithStore(store), rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json content-type, got %s", ct)
+	}
+
+	var got map[string]int
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if got["deleted"] != 5 {
+		t.Fatalf("expected deleted=5, got %d", got["deleted"])
+	}
+}
+
+func TestHandleDeleteExpired_Error(t *testing.T) {
+	t.Parallel()
+
+	store := &storeStub{deleteErr: errors.New("delete failed")}
+	req := httptest.NewRequest(http.MethodDelete, "/sessions/expired", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	handleDeleteExpired(testServiceWithStore(store), rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rr.Code)
+	}
+	var resp domain.ResponseEnvelope
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != "delete_expired_failed" {
+		t.Fatalf("unexpected error payload: %+v", resp.Error)
 	}
 }

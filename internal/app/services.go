@@ -102,10 +102,12 @@ func (s *Service) ProcessRequest(
 	}
 
 	output, err := s.engine.Step(ctx, machine, req, session)
+
+	if upsertError := s.sessions.Upsert(ctx, session); upsertError != nil {
+		return domain.ResponseEnvelope{}, upsertError
+	}
+
 	if err != nil {
-		if upsertError := s.sessions.Upsert(ctx, session); upsertError != nil {
-			return domain.ResponseEnvelope{}, upsertError
-		}
 		return domain.ResponseEnvelope{
 			SessionID: req.SessionID,
 			State:     session.State,
@@ -127,4 +129,14 @@ func (s *Service) ProcessRequest(
 		State:     session.State,
 		Output:    output,
 	}, nil
+}
+
+// Stats returns a snapshot of session population relative to now.
+func (s *Service) Stats(ctx context.Context) (domain.SessionStats, error) {
+	return s.sessions.Stats(ctx)
+}
+
+// DeleteExpired removes all expired sessions and returns the number deleted.
+func (s *Service) DeleteExpired(ctx context.Context) (int, error) {
+	return s.sessions.DeleteExpired(ctx)
 }

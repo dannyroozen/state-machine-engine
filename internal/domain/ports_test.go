@@ -24,6 +24,15 @@ type testSessionStore struct{}
 
 func (testSessionStore) Get(context.Context, string) (*Session, error) { return &Session{}, nil }
 func (testSessionStore) Upsert(context.Context, *Session) error        { return nil }
+func (testSessionStore) DeleteExpired(context.Context) (int, error) {
+	return 0, nil
+}
+func (testSessionStore) ActiveCount(context.Context) (int, error) {
+	return 0, nil
+}
+func (testSessionStore) Stats(context.Context) (SessionStats, error) {
+	return SessionStats{}, nil
+}
 
 type testConditionEvaluator struct{}
 

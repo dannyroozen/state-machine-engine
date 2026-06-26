@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"state-machine-engine/internal/logging"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,7 +105,7 @@ func (s *Store) Upsert(ctx context.Context, session *domain.Session) error {
 
 	cp := *session
 	if session.Data != nil {
-		cp.Data = json.RawMessage(append([]byte(nil), session.Data...))
+		cp.Data = append([]byte(nil), session.Data...)
 	}
 
 	raw, err := json.Marshal(cp)
@@ -152,6 +153,139 @@ func (s *Store) Upsert(ctx context.Context, session *domain.Session) error {
 	}
 
 	return nil
+}
+
+// DeleteExpired removes expired sessions and returns how many were deleted.
+func (s *Store) DeleteExpired(ctx context.Context) (int, error) {
+	logger.Debug("file store delete expired sessions")
+
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return 0, fmt.Errorf("failed reading session directory: %w", err)
+	}
+
+	deleted := 0
+	now := time.Now()
+	for _, e := range entries {
+		if err := ctx.Err(); err != nil {
+			return deleted, err
+		}
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(s.dir, e.Name())
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return deleted, fmt.Errorf("failed reading session file %s: %w", e.Name(), err)
+		}
+
+		var sess domain.Session
+		if err = json.Unmarshal(raw, &sess); err != nil {
+			return deleted, fmt.Errorf("invalid session json in %s: %w", e.Name(), err)
+		}
+
+		if !sess.ExpiresAt.IsZero() && !sess.ExpiresAt.After(now) {
+			if err = os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return deleted, fmt.Errorf("failed deleting expired session file %s: %w", e.Name(), err)
+			}
+			deleted++
+		}
+	}
+
+	return deleted, nil
+}
+
+// ActiveCount returns the number of sessions that are not expired at the provided timestamp.
+func (s *Store) ActiveCount(ctx context.Context) (int, error) {
+	stats, err := s.Stats(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return stats.Active, nil
+}
+
+func (s *Store) Stats(ctx context.Context) (domain.SessionStats, error) {
+	logger.Debug("file store session stats")
+
+	if err := ctx.Err(); err != nil {
+		return domain.SessionStats{}, err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return domain.SessionStats{}, fmt.Errorf("failed reading session directory: %w", err)
+	}
+
+	stats := domain.SessionStats{}
+	var earliest time.Time
+	var latest time.Time
+	hasExpiry := false
+
+	now := time.Now()
+	for _, e := range entries {
+		if err := ctx.Err(); err != nil {
+			return stats, err
+		}
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(s.dir, e.Name())
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return stats, fmt.Errorf("failed reading session file %s: %w", e.Name(), err)
+		}
+
+		var sess domain.Session
+		if err = json.Unmarshal(raw, &sess); err != nil {
+			return stats, fmt.Errorf("invalid session json in %s: %w", e.Name(), err)
+		}
+
+		stats.Total++
+		if sess.ExpiresAt.IsZero() {
+			stats.WithoutExpiry++
+			stats.Active++
+			continue
+		}
+		if sess.ExpiresAt.After(now) {
+			stats.Active++
+		} else {
+			stats.Expired++
+		}
+
+		if !hasExpiry {
+			earliest = sess.ExpiresAt
+			latest = sess.ExpiresAt
+			hasExpiry = true
+		} else {
+			if sess.ExpiresAt.Before(earliest) {
+				earliest = sess.ExpiresAt
+			}
+			if sess.ExpiresAt.After(latest) {
+				latest = sess.ExpiresAt
+			}
+		}
+	}
+
+	if hasExpiry {
+		earliestCopy := earliest
+		latestCopy := latest
+		stats.EarliestExpiry = &earliestCopy
+		stats.LatestExpiry = &latestCopy
+	}
+
+	return stats, nil
 }
 
 func (s *Store) sessionPath(sessionID string) string {

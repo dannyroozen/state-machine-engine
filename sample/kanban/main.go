@@ -41,7 +41,7 @@ func (r *KanbanRuntime) BuildService(machinePath, runtimePath string) *app.Servi
 			sessionStore = fsStore
 		} else {
 			logger.Error(fmt.Sprintf("failed to instantiate file session store: %v", fsErr))
-			// TODO: Should this be fatal?
+			// TODO: Should this be fatal? Or go ahead and use memory store as backup?
 		}
 	} else if err != nil {
 		logger.Error(fmt.Sprintf("failed to load runtime config: %v", err))

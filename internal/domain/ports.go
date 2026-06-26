@@ -1,6 +1,8 @@
 package domain
 
-import "context"
+import (
+	"context"
+)
 
 // ConfigProvider implemented by a configuration plugin.
 // For example, implement configuration provided in a relational database instead of a config file
@@ -14,10 +16,12 @@ type ConfigProvider interface {
 
 // SessionStore implemented by a session plugin.
 // For example, session may be stored in elasticache, dynamodb, files on the system, or simply in memory.
-// Provides getter and upsert functions.
 type SessionStore interface {
 	Get(ctx context.Context, sessionID string) (*Session, error)
 	Upsert(ctx context.Context, session *Session) error
+	DeleteExpired(ctx context.Context) (deleted int, err error)
+	ActiveCount(ctx context.Context) (count int, err error)
+	Stats(ctx context.Context) (SessionStats, error)
 }
 
 // ConditionEvaluator implemented by a plugin,

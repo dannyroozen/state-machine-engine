@@ -245,9 +245,7 @@ func RunClient(socketPath, input, endpoint string) error {
 	if endpoint == "" {
 		endpoint = "requests"
 	} else {
-		if strings.HasPrefix(endpoint, "/") {
-			endpoint = endpoint[1:]
-		}
+		endpoint = strings.TrimPrefix(endpoint, "/")
 		switch endpoint {
 		case "stats":
 			method = http.MethodGet

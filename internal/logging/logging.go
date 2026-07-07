@@ -36,7 +36,7 @@ func init() {
 	viper.AddConfigPath("./config")
 	viper.AddConfigPath(".")
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println(fmt.Sprintf("viper attempted to read log-config.yaml, but failed to read config file: %v\n", err))
+		fmt.Printf("viper attempted to read log-config.yaml, but failed to read config file: %v\n", err)
 		fmt.Println("this may be expected if no config file exists")
 	} else {
 		fmt.Println("successfully read log-config.yaml config file")
@@ -102,7 +102,7 @@ func getLogLevel(level string) zap.AtomicLevel {
 	lvl := zapcore.DebugLevel
 	// turn level into a zapcore.Level
 	if err := lvl.UnmarshalText([]byte(level)); err != nil {
-		fmt.Println(fmt.Sprintf("Error parsing log level %s, using Debug as default: %v", level, err))
+		fmt.Printf("Error parsing log level %s, using Debug as default: %v\n", level, err)
 	}
 	return zap.NewAtomicLevelAt(lvl)
 }

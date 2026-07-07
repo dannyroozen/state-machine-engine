@@ -166,3 +166,75 @@ func TestStore_HashedFilename(t *testing.T) {
 		t.Fatalf("expected persisted session json file")
 	}
 }
+
+func TestStore_DeleteExpiredAndActiveCount(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	s, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	now := time.Now()
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "active", State: "x", ExpiresAt: now.Add(time.Minute)})
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "expired", State: "x", ExpiresAt: now.Add(-time.Minute)})
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "no-expiry", State: "x"})
+
+	activeBefore, err := s.ActiveCount(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected active count error: %v", err)
+	}
+	if activeBefore != 2 {
+		t.Fatalf("expected 2 active sessions, got %d", activeBefore)
+	}
+
+	deleted, err := s.DeleteExpired(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected delete expired error: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 deleted session, got %d", deleted)
+	}
+
+	activeAfter, err := s.ActiveCount(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected active count error: %v", err)
+	}
+	if activeAfter != 2 {
+		t.Fatalf("expected 2 active sessions after cleanup, got %d", activeAfter)
+	}
+}
+
+func TestStore_Stats(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	s, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	now := time.Now()
+	earliest := now.Add(-2 * time.Minute)
+	latest := now.Add(3 * time.Minute)
+
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "expired", State: "x", ExpiresAt: earliest})
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "active", State: "x", ExpiresAt: latest})
+	_ = s.Upsert(context.Background(), &domain.Session{ID: "no-expiry", State: "x"})
+
+	stats, err := s.Stats(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected stats error: %v", err)
+	}
+
+	if stats.Total != 3 || stats.Active != 2 || stats.Expired != 1 || stats.WithoutExpiry != 1 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+	if stats.EarliestExpiry == nil || !stats.EarliestExpiry.Equal(earliest) {
+		t.Fatalf("unexpected earliest expiry: %+v", stats.EarliestExpiry)
+	}
+	if stats.LatestExpiry == nil || !stats.LatestExpiry.Equal(latest) {
+		t.Fatalf("unexpected latest expiry: %+v", stats.LatestExpiry)
+	}
+}

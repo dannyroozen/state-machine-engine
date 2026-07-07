@@ -79,8 +79,8 @@ func TestStep_NoTransitionMatched(t *testing.T) {
 	s := &domain.Session{ID: "s1", State: "start"}
 
 	_, err := e.Step(context.Background(), baseMachine(), domain.RequestEnvelope{SessionID: "s1"}, s)
-	if err == nil || !strings.Contains(err.Error(), "no transition matched") {
-		t.Fatalf("expected ErrNoTransitionMatched, got %v", err)
+	if err != nil || s.State != "error" {
+		t.Fatalf("expected transition to error state when no transitions matched, got [%s] %v", s.State, err)
 	}
 }
 

@@ -32,7 +32,7 @@ func newRootCmd(rt Runtime) *cobra.Command {
 			logger.Debug("sending request")
 			socketPath := viper.GetString("socket")
 			input := viper.GetString("input")
-			return rt.RunRequest(socketPath, input)
+			return rt.RunRequest(socketPath, input, "")
 		},
 	}
 
@@ -53,6 +53,8 @@ func newRootCmd(rt Runtime) *cobra.Command {
 
 	rootCmd.AddCommand(newServeCmd(rt))
 	rootCmd.AddCommand(newConfigCmd(rt))
+	rootCmd.AddCommand(newStatsCmd(rt))
+	rootCmd.AddCommand(newDeleteExpiredCmd(rt))
 	return rootCmd
 }
 

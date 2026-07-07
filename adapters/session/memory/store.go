@@ -9,6 +9,7 @@ import (
 	"errors"
 	"state-machine-engine/internal/logging"
 	"sync"
+	"time"
 
 	"state-machine-engine/internal/domain"
 )
@@ -61,4 +62,93 @@ func (s *Store) Upsert(_ context.Context, session *domain.Session) error {
 	}
 	s.sessions[session.ID] = cp
 	return nil
+}
+
+// DeleteExpired removes all expired sessions and returns the number deleted.
+func (s *Store) DeleteExpired(ctx context.Context) (int, error) {
+	logger.Debug("memory store delete expired sessions")
+
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	deleted := 0
+	now := time.Now()
+	for id, sess := range s.sessions {
+		if err := ctx.Err(); err != nil {
+			return deleted, err
+		}
+		if !sess.ExpiresAt.IsZero() && !sess.ExpiresAt.After(now) {
+			delete(s.sessions, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+// ActiveCount returns the number of sessions that are not expired at the provided timestamp.
+func (s *Store) ActiveCount(ctx context.Context) (int, error) {
+	stats, err := s.Stats(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return stats.Active, nil
+}
+
+func (s *Store) Stats(ctx context.Context) (domain.SessionStats, error) {
+	logger.Debug("memory store session stats")
+
+	if err := ctx.Err(); err != nil {
+		return domain.SessionStats{}, err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := domain.SessionStats{}
+	var earliest time.Time
+	var latest time.Time
+	hasExpiry := false
+
+	now := time.Now()
+	for _, sess := range s.sessions {
+		if err := ctx.Err(); err != nil {
+			return stats, err
+		}
+		stats.Total++
+		if sess.ExpiresAt.IsZero() {
+			stats.WithoutExpiry++
+			stats.Active++
+			continue
+		}
+		if sess.ExpiresAt.After(now) {
+			stats.Active++
+		} else {
+			stats.Expired++
+		}
+		if !hasExpiry {
+			earliest = sess.ExpiresAt
+			latest = sess.ExpiresAt
+			hasExpiry = true
+		} else {
+			if sess.ExpiresAt.Before(earliest) {
+				earliest = sess.ExpiresAt
+			}
+			if sess.ExpiresAt.After(latest) {
+				latest = sess.ExpiresAt
+			}
+		}
+	}
+
+	if hasExpiry {
+		earliestCopy := earliest
+		latestCopy := latest
+		stats.EarliestExpiry = &earliestCopy
+		stats.LatestExpiry = &latestCopy
+	}
+
+	return stats, nil
 }

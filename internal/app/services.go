@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"state-machine-engine/internal/logging"
 	"time"
 
 	"state-machine-engine/internal/domain"
 	"state-machine-engine/internal/engine"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -18,6 +21,8 @@ var (
 	ErrSessionExpired    = errors.New("session expired")
 	ErrDependencyMissing = errors.New("required dependency is not configured")
 )
+
+var logger = logging.NewLogger("services")
 
 type Service struct {
 	machine   domain.ConfigProvider
@@ -103,9 +108,16 @@ func (s *Service) ProcessRequest(
 
 	output, err := s.engine.Step(ctx, machine, req, session)
 	if err != nil {
-		if upsertError := s.sessions.Upsert(ctx, session); upsertError != nil {
-			return domain.ResponseEnvelope{}, upsertError
-		}
+		// We need to save the session, even after an error, but we don't want an error with the upsert to lose the data from this error.
+		// So log this error now before we return the response envelope in a bit.
+		logger.Error("failure at step", zap.Error(err))
+	}
+
+	if upsertError := s.sessions.Upsert(ctx, session); upsertError != nil {
+		return domain.ResponseEnvelope{}, errors.Join(err, upsertError)
+	}
+
+	if err != nil {
 		return domain.ResponseEnvelope{
 			SessionID: req.SessionID,
 			State:     session.State,
@@ -127,4 +139,14 @@ func (s *Service) ProcessRequest(
 		State:     session.State,
 		Output:    output,
 	}, nil
+}
+
+// Stats returns a snapshot of session population relative to now.
+func (s *Service) Stats(ctx context.Context) (domain.SessionStats, error) {
+	return s.sessions.Stats(ctx)
+}
+
+// DeleteExpired removes all expired sessions and returns the number deleted.
+func (s *Service) DeleteExpired(ctx context.Context) (int, error) {
+	return s.sessions.DeleteExpired(ctx)
 }

@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	MaxRequestSizeBytes = 1 << 20 // 1 MB
-	ExitState           = "exit"
+	MaxRequestSizeBytes    = 1 << 20 // 1 MB
+	ExitState              = "exit"
+	DefaultMaxAutoAdvances = 1000
 )
 
 // RequestEnvelope is the normalized input contract for CLI and future REST.
@@ -50,6 +51,7 @@ type SessionStats struct {
 type RuntimeConfig struct {
 	Session   SessionRuntimeConfig   `json:"session"`
 	Assistant AssistantRuntimeConfig `json:"assistant,omitempty"`
+	Engine    EngineRuntimeConfig    `json:"engine,omitempty"`
 }
 
 type SessionRuntimeConfig struct {
@@ -61,6 +63,10 @@ type AssistantRuntimeConfig struct {
 	MaxTurns  int                 `json:"max_turns,omitempty"`
 	TargetDir string              `json:"target_dir,omitempty"`
 	Ollama    OllamaRuntimeConfig `json:"ollama,omitempty"`
+}
+
+type EngineRuntimeConfig struct {
+	MaxAutoAdvanceSteps int `json:"max_auto_advance_steps,omitempty"`
 }
 
 type OllamaRuntimeConfig struct {
@@ -82,6 +88,7 @@ type StateMachine struct {
 type StateDefinition struct {
 	Action      string                 `json:"action,omitempty" yaml:"Action,omitempty"` // optional plugin action name
 	Transitions []TransitionDefinition `json:"transitions" yaml:"Transitions"`
+	AutoAdvance bool                   `json:"auto_advance,omitempty" yaml:"AutoAdvance,omitempty"`
 }
 
 type TransitionDefinition struct {

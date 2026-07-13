@@ -92,6 +92,7 @@ func TestProcessRequest_Success(t *testing.T) {
 		machine: testMachine(),
 		rt: &domain.RuntimeConfig{
 			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+			Engine:  domain.EngineRuntimeConfig{MaxAutoAdvanceSteps: 10},
 		},
 	}
 	store := &storeStub{}
@@ -119,6 +120,7 @@ func TestProcessRequest_InputValidation(t *testing.T) {
 		machine: testMachine(),
 		rt: &domain.RuntimeConfig{
 			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+			Engine:  domain.EngineRuntimeConfig{MaxAutoAdvanceSteps: 10},
 		},
 	}
 
@@ -160,6 +162,7 @@ func TestProcessRequest_ExpiredSession(t *testing.T) {
 		machine: testMachine(),
 		rt: &domain.RuntimeConfig{
 			Session: domain.SessionRuntimeConfig{TTL: time.Minute},
+			Engine:  domain.EngineRuntimeConfig{MaxAutoAdvanceSteps: 10},
 		},
 	}
 	store := &storeStub{

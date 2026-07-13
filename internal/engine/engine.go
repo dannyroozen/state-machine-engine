@@ -53,6 +53,38 @@ func (e *Engine) HasObserver(index int) bool {
 	return e.observers[index] != nil
 }
 
+func (e *Engine) Steps(
+	ctx context.Context,
+	machine *domain.StateMachine,
+	req domain.RequestEnvelope,
+	session *domain.Session,
+	maxSteps int,
+) (output []byte, err error) {
+
+	if maxSteps <= 0 {
+		maxSteps = domain.DefaultMaxAutoAdvances
+	}
+
+	for i := 0; i < maxSteps; i++ {
+		var out []byte
+		out, err = e.Step(ctx, machine, req, session)
+		output = append(output, out...)
+		if err != nil {
+			return output, err
+		}
+		if strings.EqualFold(session.State, domain.ExitState) {
+			return output, nil
+		}
+
+		stateDef := machine.States[session.State]
+		if !stateDef.AutoAdvance {
+			return output, nil
+		}
+	}
+
+	return output, fmt.Errorf("maximum auto-advance steps exceeded: %d", maxSteps)
+}
+
 func (e *Engine) Step(
 	ctx context.Context,
 	machine *domain.StateMachine,

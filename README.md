@@ -100,7 +100,8 @@ In short: **`internal` is the framework/engine**.
 
 Example implementations of those contracts:
 
-- `adapters/config/file`: loads machine/runtime JSON from files
+- `adapters/config/json`: loads machine/runtime JSON from files
+- `adapters/session/file`: file-based session store
 - `adapters/session/memory`: in-memory session store
 - `adapters/conditions/registry`: condition registry with built-in conditions
 - `adapters/conditions/simple`: simple condition evaluator, three conditions implemented in one method
@@ -157,32 +158,76 @@ The machine supports:
         - optional `action`
         - `target`
 
+### Auto-advance behavior
+
+By default, a state's `auto_advance` value is `false`.
+
+When `auto_advance` is `true`, the engine will:
+
+1. execute a normal step into that state
+2. execute that state's action, if any
+3. immediately call the next step again without returning to the caller
+4. continue doing so until:
+    - it reaches a state where `auto_advance` is `false`
+    - it reaches `exit`
+    - an error occurs
+    - the configured maximum auto-advance step count is reached
+
+Output produced across auto-advanced steps is appended in order, just like transition and state action output is appended within a single step.
+
+Example:
+
+```json
+{ 
+    "name": "example", 
+    "initial_state": "start", 
+    "error_state": "error", 
+    "states": { 
+        "start": { "transitions": { "id": "to_internal", "target": "internal" } }, 
+        "internal": { "auto_advance": true, "action": "noop", "transitions": { "id": "to_prompt", "target": "prompt" } }, 
+        "prompt": { "action": "echo_input", "transitions": { "id": "to_exit", "target": "exit" } }, 
+        "error": { "transitions": }, 
+        "exit": { "transitions": [] } 
+    } 
+}
+```
+
+In that example, a request entering `internal` will not return immediately. 
+The engine will keep going until it reaches `prompt`, because `internal.auto_advance` is `true` and `prompt.auto_advance` is omitted, so it defaults to `false`.
+
 ### Runtime config shape
 
 `runtime.json` includes runtime settings such as:
 
 - `session.ttl` (duration string, e.g. `"30m"`, `"1h"`)
 - `session.file_location` (directory path for file-backed session storage)
+- `engine.max_auto_advance_steps` maximum number of auto-advanced steps allowed in one request flow
+
+If `engine.max_auto_advance_steps` is not configured or is less than or equal to zero, the default is `1000`.
 
 Example:
 
-```json 
-    { 
-        "session": { 
-            "ttl": "30m", 
-            "file_location": "target/sessions" 
-        }, 
-        "assistant": { 
-            "target_dir": "target/config-assistant", 
-            "archive_dir": "target/config-assistant/archive", 
-            "ollama": { 
-                "base_url": "[http://localhost:11434](http://localhost:11434)", 
-                "model": "qwen3.6", 
-                "timeout_seconds": 120 
-            } 
+```json
+{ 
+    "session": { 
+        "ttl": "30m", 
+        "file_location": "target/sessions" 
+    }, 
+    "engine": { 
+        "max_auto_advance_steps": 1000 
+    }, 
+    "assistant": { 
+        "target_dir": "target/config-assistant", 
+        "archive_dir": "target/config-assistant/archive", 
+        "ollama": { 
+            "base_url": "[http://localhost:11434](http://localhost:11434)", 
+            "model": "qwen3.6", 
+            "timeout_seconds": 120 
         } 
-    }
-```        
+    } 
+}
+```
+ 
 ---
 
 ## CLI usage

@@ -106,7 +106,7 @@ func (s *Service) ProcessRequest(
 		return domain.ResponseEnvelope{}, ErrSessionExpired
 	}
 
-	output, err := s.engine.Step(ctx, machine, req, session)
+	output, err := s.engine.Steps(ctx, machine, req, session, rtCfg.Engine.MaxAutoAdvanceSteps)
 	if err != nil {
 		// We need to save the session, even after an error, but we don't want an error with the upsert to lose the data from this error.
 		// So log this error now before we return the response envelope in a bit.

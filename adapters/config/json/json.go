@@ -45,6 +45,9 @@ type runtimeConfigDTO struct {
 		} `json:"ollama"`
 		MaxTurns int `json:"max_turns"`
 	} `json:"assistant"`
+	Engine struct {
+		MaxAutoAdvanceSteps int `json:"max_auto_advance_steps"`
+	} `json:"engine"`
 }
 
 func (p *Provider) LoadStateMachine(_ context.Context) (*domain.StateMachine, error) {
@@ -159,6 +162,9 @@ func (p *Provider) LoadRuntimeConfig(_ context.Context) (*domain.RuntimeConfig, 
 	}
 	if cfg.Assistant.Ollama.TimeoutSeconds <= 0 {
 		cfg.Assistant.Ollama.TimeoutSeconds = 120
+	}
+	if cfg.Engine.MaxAutoAdvanceSteps <= 0 {
+		cfg.Engine.MaxAutoAdvanceSteps = domain.DefaultMaxAutoAdvances
 	}
 
 	return cfg, nil

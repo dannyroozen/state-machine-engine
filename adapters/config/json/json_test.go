@@ -155,7 +155,8 @@ func TestProvider_LoadRuntimeConfig_SuccessAndErrors(t *testing.T) {
 	}
 	if err := os.WriteFile(runtimePath, []byte(`{
 		"session":{"ttl":"2m","file_location":"target/sessions"},
-		"assistant":{"max_turns":55,"ollama":{"base_url":"http://localhost:11434","model":"llama3.1","timeout_seconds":30}}
+		"assistant":{"max_turns":55,"ollama":{"base_url":"http://localhost:11434","model":"llama3.1","timeout_seconds":30}},
+		"engine":{"max_auto_advance_steps":250}
 	}`), 0o600); err != nil {
 		t.Fatal(err)
 	}

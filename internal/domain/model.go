@@ -86,9 +86,10 @@ type StateMachine struct {
 
 // StateDefinition defines the transitions between states
 type StateDefinition struct {
-	Action      string                 `json:"action,omitempty" yaml:"Action,omitempty"` // optional plugin action name
-	Transitions []TransitionDefinition `json:"transitions" yaml:"Transitions"`
-	AutoAdvance bool                   `json:"auto_advance,omitempty" yaml:"AutoAdvance,omitempty"`
+	Action        string                 `json:"action,omitempty" yaml:"Action,omitempty"` // optional plugin action name
+	Transitions   []TransitionDefinition `json:"transitions" yaml:"Transitions"`
+	AutoAdvance   bool                   `json:"auto_advance,omitempty" yaml:"AutoAdvance,omitempty"`
+	ExecuteOnFrom bool                   `json:"execute_on_from,omitempty" yaml:"ExecuteOnFrom,omitempty"`
 }
 
 type TransitionDefinition struct {
@@ -96,4 +97,11 @@ type TransitionDefinition struct {
 	Condition string `json:"condition,omitempty" yaml:"Condition,omitempty"` // evaluated by condition evaluator
 	Action    string `json:"action,omitempty" yaml:"Action,omitempty"`       // optional plugin action name
 	Target    string `json:"target" yaml:"Target"`
+}
+
+type FinishExecutionError struct {
+}
+
+func (e FinishExecutionError) Error() string {
+    return "finished execution, do not advance state machine"
 }

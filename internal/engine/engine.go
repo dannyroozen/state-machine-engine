@@ -120,7 +120,7 @@ func (e *Engine) Step(
 		out, err = e.actions.Execute(ctx, stateDef.Action, req, session, transitionEvent)
 		if err != nil && errors.Is(err, domain.FinishExecutionError{}) {
 			// If the action returns a FinishExecutionError, we stop processing and return the output so far.
-			return out, domain.FinishExecutionError{}
+			return out, nil // we don't want to return an error, because we've already handle its intent
 		} else if err != nil {
 			session.State = machine.ErrorState
 			_ = e.notify(ctx, domain.TransitionEvent{

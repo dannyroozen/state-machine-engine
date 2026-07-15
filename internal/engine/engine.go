@@ -107,6 +107,37 @@ func (e *Engine) Step(
 	// Upfront validator guarantees state exists, no need to double-check
 	stateDef := machine.States[fromState]
 
+	var out []byte
+	// Initially designed ExecuteOnFrom to allow a state itself to be a state machine, but there could be other use cases.
+	if stateDef.ExecuteOnFrom && stateDef.Action != "" {
+		transitionEvent := domain.TransitionEvent{
+			SessionID:   session.ID,
+			MachineName: machine.Name,
+			FromState:   fromState,
+			Success:     true,
+		}
+
+		out, err = e.actions.Execute(ctx, stateDef.Action, req, session, transitionEvent)
+		if err != nil && errors.Is(err, domain.FinishExecutionError{}) {
+			// If the action returns a FinishExecutionError, we stop processing and return the output so far.
+			return out, nil // we don't want to return an error, because we've already handle its intent
+		} else if err != nil {
+			session.State = machine.ErrorState
+			_ = e.notify(ctx, domain.TransitionEvent{
+				SessionID:   session.ID,
+				MachineName: machine.Name,
+				FromState:   fromState,
+				Transition:  "runtime_error_executing_state",
+				ToState:     machine.ErrorState,
+				Success:     false,
+				Error:       err.Error(),
+			})
+			return nil, fmt.Errorf("action failed: when executing state [%q]: %v", fromState, err)
+		}
+	}
+
+	output = out
+
 	// ## Find the next state we should transition to ##
 	var selected *domain.TransitionDefinition
 	var success = true
@@ -153,7 +184,6 @@ func (e *Engine) Step(
 	}
 
 	// ## Execute the Action associated with the transition, if any
-	var out []byte
 	if err == nil && selected.Action != "" {
 		logger.Debug(fmt.Sprintf("Executing action: [%s] ", selected.Action))
 		// e.actions assumed to exist and be validated on engine startup
@@ -181,9 +211,13 @@ func (e *Engine) Step(
 
 			success = false
 		}
+
+		// combine output with whatever output we may have received from the action on the transition leading to this state.
+		// it is up to the state machine definition to make sure either actions on transitions don't output,
+		// or that the output works with the output of the state
+		output = append(output, out...)
 	}
 
-	output = out
 	targetState := selected.Target
 	session.State = selected.Target
 	transitionEvent := domain.TransitionEvent{
